@@ -1,0 +1,14 @@
+<resources>
+    <style name="Theme.Stillday" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+    <style name="Theme.Stillday.Picker.Light" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#536F5E</item>
+    </style>
+    <style name="Theme.Stillday.Picker.Dark" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#A9C5B0</item>
+    </style>
+</resources>

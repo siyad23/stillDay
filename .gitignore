@@ -1,0 +1,44 @@
+.gradle/
+.kotlin/
+**/build/
+.tools/
+.android/
+local.properties
+*.iml
+.idea/
+captures/
+*.hprof
+
+# Local delivery artifacts, reports, and emulator/device data
+/artifacts/
+/backups/
+*.apk
+*.aab
+*.apks
+*.db
+*.db-shm
+*.db-wal
+stillday-*.json
+*.log
+
+# Machine-specific settings, credentials, and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+keystore.properties
+signing.properties
+google-services.json
+.aws/
+.codex/
+.agents/
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

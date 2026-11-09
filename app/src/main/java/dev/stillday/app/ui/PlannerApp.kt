@@ -1,0 +1,138 @@
+package dev.stillday.app.ui
+
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.stillday.app.PlannerViewModel
+import dev.stillday.domain.*
+import java.time.LocalDate
+
+private data class AssessmentRequest(val courseId: String? = null, val assessment: Assessment? = null)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun PlannerApp(vm: PlannerViewModel) {
+    val state by vm.state.collectAsStateWithLifecycle()
+    var route by rememberSaveable { mutableStateOf("Today") }
+    var tab by rememberSaveable { mutableStateOf("Today") }
+    var form by remember { mutableStateOf<FormSpec?>(null) }
+    var assessment by remember { mutableStateOf<AssessmentRequest?>(null) }
+    var study by remember { mutableStateOf<StudyItem?>(null) }
+    var chapterStudy by remember { mutableStateOf<Chapter?>(null) }
+    val snack = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
+        vm.preferences { it.copy(notifications = allowed, reminderSetupDone = true) }
+    }
+    LaunchedEffect(vm) { vm.events.collect { snack.showSnackbar(it) } }
+    BackHandler(route !in listOf("Today", "Calendar", "University", "Life")) { route = tab }
+    StilldayTheme(state.preferences.theme) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            if (!state.ready) {
+                Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
+            } else if (!state.preferences.onboardingComplete) {
+                Onboarding(vm)
+            } else {
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    snackbarHost = { SnackbarHost(snack) },
+                    topBar = {
+                        TopAppBar(title = { Text(if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
+                            style = MaterialTheme.typography.titleLarge) },
+                            navigationIcon = { if (route.contains(':') || route == "Settings") IconButton(onClick = { route = tab }) { Icon(Icons.Outlined.ArrowBack, "Back") } },
+                            actions = { IconButton(onClick = { route = "Settings" }) { Icon(Icons.Outlined.Tune, "Settings") } },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+                    },
+                    bottomBar = {
+                        NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
+                            listOf("Today" to Icons.Outlined.WbSunny, "Calendar" to Icons.Outlined.CalendarMonth,
+                                "University" to Icons.Outlined.School, "Life" to Icons.Outlined.Spa).forEach { (label, icon) ->
+                                NavigationBarItem(selected = tab == label, onClick = { tab = label; route = label }, icon = { Icon(icon, null) }, label = { Text(label) })
+                            }
+                        }
+                    },
+                    floatingActionButton = {
+                        if (route in listOf("Today", "Calendar")) FloatingActionButton(onClick = { assessment = AssessmentRequest() },
+                            containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Outlined.Add, "Quick add quiz") }
+                    }
+                ) { padding ->
+                    Box(Modifier.padding(padding)) {
+                        val open: (FormSpec) -> Unit = { form = it }
+                        val navigate: (String) -> Unit = { route = it }
+                        when {
+                            route == "Today" -> TodayScreen(vm, state, open, navigate, { study = it })
+                            route == "Calendar" -> CalendarScreen(vm, state, open, navigate)
+                            route == "University" -> UniversityScreen(vm, state, open, navigate)
+                            route == "Life" -> LifeScreen(vm, state, open, navigate)
+                            route == "Settings" -> SettingsScreen(vm, state, open, onEnableNotifications = {
+                                if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                else vm.preferences { it.copy(notifications = true) }
+                            })
+                            route.startsWith("semester:") -> SemesterScreen(vm, state, route.substringAfter(':'), open, navigate)
+                            route.startsWith("course:") -> CourseScreen(vm, state, route.substringAfter(':'), open, navigate,
+                                onAssessment = { id, old -> assessment = AssessmentRequest(id, old) })
+                            route.startsWith("chapter:") -> ChapterScreen(vm, state, route.substringAfter(':'), open, { chapterStudy = it })
+                            route.startsWith("assessment:") -> AssessmentScreen(vm, state, route.substringAfter(':'), { assessment = AssessmentRequest(it.courseId, it) })
+                            route.startsWith("class:") -> OccurrenceScreen(vm, state, route.substringAfter(':'), open)
+                            route.startsWith("assignment:") -> WorkScreen(vm, state, route.substringAfter(':'), false, open)
+                            route.startsWith("project:") -> WorkScreen(vm, state, route.substringAfter(':'), true, open)
+                        }
+                    }
+                }
+            }
+            form?.let { FormEditor(it) { form = null } }
+            assessment?.let { request -> AssessmentEditor(vm, request.courseId, request.assessment) { assessment = null } }
+            study?.let { item -> StudyDialog(vm, item) { study = null } }
+            chapterStudy?.let { ChapterStudyDialog(vm, state, it) { chapterStudy = null } }
+            if (state.ready && state.preferences.onboardingComplete && !state.preferences.demoData && !state.preferences.reminderSetupDone) {
+                AlertDialog(onDismissRequest = { vm.preferences { it.copy(reminderSetupDone = true) } }, title = { Text("A quiet daily briefing") },
+                    text = { Text("Get one morning plan, plus reminders before classes, assessments and deadlines. Change the timing in Settings.") },
+                    confirmButton = { TextButton(onClick = {
+                        if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else vm.preferences { it.copy(notifications = true, reminderSetupDone = true) }
+                    }) { Text("Enable reminders") } },
+                    dismissButton = { TextButton(onClick = { vm.preferences { it.copy(reminderSetupDone = true) } }) { Text("Later") } })
+            }
+        }
+    }
+}
+
+@Composable private fun Onboarding(vm: PlannerViewModel) {
+    var form by remember { mutableStateOf<FormSpec?>(null) }
+    Page {
+        Spacer(Modifier.height(64.dp))
+        Text("stillday", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(16.dp))
+        Text("A little less\nto decide.", style = MaterialTheme.typography.displaySmall)
+        Text("Your classes, study plan, meals and everyday tasks. One quiet place to know what comes next.",
+            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(20.dp))
+        QuietCard {
+            Text("Start with your semester", style = MaterialTheme.typography.titleLarge)
+            Text("Everything stays on your phone. You can export a backup whenever you need one.", style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = { form = FormSpec("Add your current semester", listOf(
+                FormField("title", "Semester name", helper = "For example, Semester 7 or Year 3 — Semester 1."),
+                FormField("start", "Start date", vm.repository.today().toString()),
+                FormField("end", "Expected end date")),
+                "Start with whichever semester you are in. Only this semester is created; add later semesters when their dates are known.") { v ->
+                val title = v.required("title"); val start = v.dateValue("start").date(); val end = v.dateValue("end").date()
+                require(!end.isBefore(start)) { "Expected end date must follow the start date." }
+                vm.action { vm.repository.setup(title, start, end) }
+            } }, modifier = Modifier.fillMaxWidth()) { Text("Add my semester") }
+        }
+        OutlinedButton(onClick = { vm.action { vm.repository.loadDemo() } }, modifier = Modifier.fillMaxWidth()) { Text("Explore a sample semester") }
+        Text("2h study on regular days · 6h during exam focus\nBoth are adjustable in Settings.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    form?.let { FormEditor(it) { form = null } }
+}

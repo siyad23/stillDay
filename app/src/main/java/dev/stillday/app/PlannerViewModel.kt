@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 class PlannerViewModel(application: Application) : AndroidViewModel(application) {
     val repository: PlannerRepository = (application as StilldayApplication).repository
     val state = repository.state
+    val updates = (application as StilldayApplication).updates
     private val messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val events = messages.asSharedFlow()
     init { action { repository.initialize(); Reminders.refresh(application, repository) } }

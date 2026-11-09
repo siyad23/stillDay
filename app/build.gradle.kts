@@ -12,8 +12,8 @@ android {
         applicationId = "dev.stillday.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = providers.gradleProperty("stilldayVersionCode").map(String::toInt).getOrElse(3)
+        versionName = providers.gradleProperty("stilldayVersionName").getOrElse("1.0.1")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -25,7 +25,17 @@ android {
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets.getByName("androidTest").assets.srcDir("$projectDir/schemas")
-    buildTypes { release { isMinifyEnabled = false } }
+    signingConfigs {
+        val keyFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
+        if (keyFile != null) create("privateRelease") {
+            storeFile = file(keyFile)
+            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull ?: error("Release keystore password is missing")
+            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull ?: error("Release key alias is missing")
+            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull ?: error("Release key password is missing")
+        }
+    }
+    buildTypes { release { isMinifyEnabled = false; signingConfig = signingConfigs.findByName("privateRelease") } }
+    sourceSets.getByName("androidTest").assets.srcDir(layout.buildDirectory.dir("update-fixtures"))
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {

@@ -34,12 +34,12 @@ The workflow invokes the wrapper with `bash`, so CI also works when a web upload
 
 ## Automated builds
 
-The Android workflow runs on pushes to `main`, pull requests, and manual dispatch. It installs Java 17 and SDK 36, runs the JVM tests and Android lint, builds a debug APK, and uploads the APK and verification reports to the workflow run. No repository secrets or cloud backend are required.
+The Android workflow runs on pushes to `main`, pull requests, and manual dispatch. It installs Java 17 and SDK 36, runs the domain and app JVM tests and Android lint, builds a debug APK, and uploads the APK and verification reports to the workflow run. No repository secrets or cloud backend are required. This catches regressions before distribution and makes each build reproducible from its Git commit.
 
 Connected Android tests remain available locally with `:app:connectedDebugAndroidTest` and a running emulator; the hosted workflow does not start an emulator. The initial GitHub-hosted run occurs after upload.
 
 ## APK releases
 
-Keep APK files outside Git history. Create a GitHub Release for a version such as `v1.1.0` and attach `Stillday-debug.apk` and `SHA256SUMS.txt` from the local `artifacts` folder, or attach the APK produced by a workflow run.
+Keep APK files outside Git history. The repository includes a **Signed APK release** workflow that creates a draft release on `v*` tag pushes, using your permanent signing key stored in GitHub Secrets. It attaches the APK, `update.json` and checksums required by the in-app updater. Review and publish the draft to make it available to phones.
 
-Local and CI debug builds can use different debug signing keys, so switching between their APKs may require reinstalling. Keep using the same signing key for updates to an existing installation. A stable release-signing setup can be added separately; signing files stay ignored.
+Follow [In-app updates and signed GitHub releases](UPDATES.md) for the four signing secrets, version/tag rules, publication steps and existing-installation signing requirements. Local and CI debug builds can use different signing keys; keep the same signing identity for updates and export your data before any deliberate reinstall.

@@ -8,7 +8,7 @@ A native, offline Android life planner built around a bounded daily study plan. 
   <img src="docs/screenshots/manual-semester.png" alt="Creating only Semester 7 with manual start and expected end dates" width="240" />
 </p>
 
-All preview data is synthetic. [GitHub upload instructions](docs/GITHUB_SETUP.md) · [Verification report](docs/TEST_REPORT.md)
+All preview data is synthetic. [GitHub upload instructions](docs/GITHUB_SETUP.md) · [In-app updates and releases](docs/UPDATES.md) · [Verification report](docs/TEST_REPORT.md)
 
 ## Run it
 
@@ -59,6 +59,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - One-off and bounded recurring routines with completion, skipping, and occurrence rescheduling.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
 - Home-screen Add Quiz widget, daily briefings, event/deadline reminders, and validated JSON export/import.
+- GitHub in-app update checks, verified APK downloads, and Android's installation prompt; daily automatic checks can be disabled in Settings.
 
 ## Study policy
 
@@ -80,7 +81,7 @@ Timetable edits preserve recorded attendance, past occurrences, and explicit exc
 
 University schedules use the configured university timezone even if the device timezone changes. Travel arrival/departure times use that same configured timezone. Explicit travel overrides assumptions. A one-way home trip infers return on the next Monday, one hour before its first class, or 08:00 without Monday classes. Home meals are flexible, and Other/in-transit meals remain unplanned unless overridden.
 
-Reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay delivery. Notification permission is enabled from Settings. No exact-alarm special access, location access, or internet permission is required by the app.
+Reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay delivery. Notification permission is enabled from Settings. No exact-alarm special access or location access is required. Internet access is used for GitHub release checks and APK downloads; university and personal records stay on the device. Android's install-from-this-source permission is requested only when installing an update.
 
 ## Architecture and tests
 

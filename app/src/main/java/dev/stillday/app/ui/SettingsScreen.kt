@@ -89,6 +89,7 @@ import java.time.ZoneId
             })
         })
         TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text("Android notification settings") }
+        UpdateSettings(vm.updates)
         SectionTitle("Backups")
         Text("Backups include all courses, schedules, study history and settings. Save them somewhere you can recover if your phone is lost.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick = { export.launch("stillday-${vm.repository.today()}.json") }, modifier = Modifier.fillMaxWidth()) { Text("Export backup") }

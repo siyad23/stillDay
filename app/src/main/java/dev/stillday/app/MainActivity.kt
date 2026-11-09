@@ -11,6 +11,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { PlannerApp(viewModel()) }
+        setContent { PlannerApp(viewModel(), intent.getBooleanExtra("show_updates", false)) }
     }
 }

@@ -41,7 +41,7 @@ jobs:
             "platforms;android-36" "build-tools;36.0.0"
 
       - name: Run unit tests, Android lint and build
-        run: bash ./gradlew :domain:test :app:lintDebug :app:assembleDebug --no-daemon --console=plain
+        run: bash ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --no-daemon --console=plain
 
       - name: Upload debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -59,6 +59,8 @@ jobs:
           path: |
             domain/build/reports/tests/test/
             domain/build/test-results/test/
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
             app/build/reports/lint-results-debug.*
           if-no-files-found: ignore
           retention-days: 14

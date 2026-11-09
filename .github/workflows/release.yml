@@ -1,0 +1,78 @@
+name: Signed APK release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic
+      - name: Install SDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Restore private signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+          for name in ['KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']:
+              if not os.environ.get(name):
+                  raise SystemExit('Missing GitHub signing secret: ' + name)
+          key = Path(os.environ['RUNNER_TEMP']) / 'stillday-release.jks'
+          key.write_bytes(base64.b64decode(os.environ['KEYSTORE_BASE64'], validate=True))
+          key.chmod(0o600)
+          PY
+      - name: Test, lint and build signed release
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/stillday-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --console=plain
+      - name: Generate verified update assets
+        run: python scripts/create-update-manifest.py --apk app/build/outputs/apk/release/app-release.apk --tag "$RELEASE_TAG"
+      - name: Prepare release notes
+        run: |
+          printf '%s\n' "Stillday $RELEASE_TAG" '' 'Install Stillday.apk or update from Settings → App updates.' 'This draft includes the APK, update metadata and SHA-256 checksums.' > artifacts/release/release-notes.md
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$RELEASE_TAG" --verify-tag --draft --title "Stillday $RELEASE_TAG" \
+            --notes-file artifacts/release/release-notes.md \
+            artifacts/release/Stillday.apk artifacts/release/update.json artifacts/release/SHA256SUMS.txt
+      - name: Remove private key
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          (Path(os.environ['RUNNER_TEMP']) / 'stillday-release.jks').unlink(missing_ok=True)
+          PY

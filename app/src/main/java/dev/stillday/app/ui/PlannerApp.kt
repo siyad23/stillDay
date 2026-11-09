@@ -22,9 +22,9 @@ import java.time.LocalDate
 private data class AssessmentRequest(val courseId: String? = null, val assessment: Assessment? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlannerApp(vm: PlannerViewModel) {
+@Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var route by rememberSaveable { mutableStateOf("Today") }
+    var route by rememberSaveable { mutableStateOf(if (openUpdates) "Settings" else "Today") }
     var tab by rememberSaveable { mutableStateOf("Today") }
     var form by remember { mutableStateOf<FormSpec?>(null) }
     var assessment by remember { mutableStateOf<AssessmentRequest?>(null) }
@@ -95,6 +95,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
             assessment?.let { request -> AssessmentEditor(vm, request.courseId, request.assessment) { assessment = null } }
             study?.let { item -> StudyDialog(vm, item) { study = null } }
             chapterStudy?.let { ChapterStudyDialog(vm, state, it) { chapterStudy = null } }
+            if (state.ready && state.preferences.onboardingComplete) UpdateHost(vm.updates, automatic = !state.preferences.demoData, openUpdates = openUpdates)
             if (state.ready && state.preferences.onboardingComplete && !state.preferences.demoData && !state.preferences.reminderSetupDone) {
                 AlertDialog(onDismissRequest = { vm.preferences { it.copy(reminderSetupDone = true) } }, title = { Text("A quiet daily briefing") },
                     text = { Text("Get one morning plan, plus reminders before classes, assessments and deadlines. Change the timing in Settings.") },

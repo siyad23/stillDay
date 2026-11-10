@@ -1,8 +1,8 @@
 # Stillday verification
 
-Test date: 9 November 2026.
+Latest test date: 10 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.1**, version code **3**, preserving the developer's version settings. The older 1.1 label below refers to the earlier feature verification, not the current Android version-code ordering.
+Current development APK: version **1.0.5**, version code **7**, including independent prework/report submission deadlines. Earlier lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
 
 ## Environment
 
@@ -22,18 +22,62 @@ Final verification tasks (using the project-local JDK 17 and Android SDK):
 | Check | Result |
 | --- | --- |
 | Debug APK build and signing | Passed |
-| Core JVM tests | 48 passed, 0 failures |
-| App JVM release-source tests | 9 passed, 0 failures |
-| Android UI/persistence/reminder/migration/updater tests | 22 passed; 2 opt-in native-install tests skipped in the ordinary suite |
+| Core JVM tests | 71 passed, 0 failures |
+| App JVM release-source/navigation tests | 15 passed, 0 failures |
+| Android UI/persistence/reminder/migration/updater/widget/navigation/lab tests | 35 passed; 3 opt-in screenshot/native-install checks skipped in the ordinary suite |
 | Android lint | 0 errors; remaining notices concern newer dependency versions |
 | Quiz entry stress check | Five consecutive complete chapter-selection/save flows passed within the UI test |
 | Installed APK smoke test | Exercise/example solving and syllabus selection passed outside Gradle's install/uninstall lifecycle |
 | In-place application update | Version 1.0.0 → 1.1.0 preserved the existing semester and saved quiz |
-| Database migration | Version 1 → 2 preserved manually dated Semester 7, existing topic state and review history |
-| Native in-app update | Same-key APK moved the installed app from version code 3 to 4 through Android's native Update prompt |
-| Native update retention | Opt-in assertion passed: all prior entity records and preferences retained, with newly generated Today plan entries allowed |
-| Signed release build | Passed with a disposable local test key; APK signature and generated metadata verified |
+| Database migrations | Version 1 → 2 → 3 and version 2 → 3 preserved dated semesters, topic/review history, lab attendance/reports and existing project work |
+| Historical native in-app update | Previous updater implementation moved a same-key test APK from version code 3 to 4 through Android's native Update prompt |
+| Historical native update retention | Opt-in assertion passed: all prior entity records and preferences retained, with newly generated Today plan entries allowed |
+| Historical signed release build | Passed with a disposable local test key; APK signature and generated metadata verified |
 | GitHub workflows | Both workflows passed actionlint; no hosted build or release was published in this session |
+
+## Lab submission deadlines
+
+Prework and reports have independent optional due dates and times, stored in the university timezone. Their dates appear in the experiment summary, Today, Calendar and the agenda widget. Pending past deadlines remain visible; Submitted, Received and Not required remove active warnings independently. Class rescheduling/cancellation and exam suppression preserve explicit deadlines.
+
+Six new domain tests cover independent due dates/statuses, precise overdue boundaries, terminal statuses, preserved deadlines after class changes, legacy undated suggestions, multiple experiments without duplicated widget entries, serialization and malformed-date rejection. A device UI test adds both deadlines, edits one, verifies Calendar routing, submits prework independently, and clears the report deadline while preserving the other recorded date.
+
+Notification checks verify separate lead-time and due-time alarm IDs, withdrawal of already displayed completed-work alerts, cancellation of future alerts and rejection of stale delivery after deadline changes. A persistence test restores deadlines through a backup and a fresh Room read. The schema-3 fixture preserves existing experiment statuses and adds null deadlines; schema-1 and schema-2 fixtures also migrate through to schema 4.
+
+Current regression totals: **86 JVM tests (71 domain + 15 app) and 35 device tests passed**, with three expected opt-in skips. Lint has zero errors, with 17 existing warnings and three hints. Tests ran on the Pixel 7 emulator; actual delayed alarm delivery under physical-phone battery policies was not measured.
+
+## Lab types and linked projects
+
+Creating a project-based lab immediately creates a linked project due at the semester's expected end date. Device UI tests create this course, verify its initial project, add another linked project with a milestone and TODO, find its task in Today, complete the task through Projects, and verify the link after activity recreation. A second device test uses an existing experiment-based lab and independently records Written prework and a Submitted report.
+
+Seven domain tests cover legacy JSON defaults, new backup round trips, invalid project-course links, shared daily-task/focus behavior, safe type changes, retained experiment history and automatic project creation without duplication on course edits. A persistence test verifies linked projects, milestones, TODO completion and personal-project classification through backup replacement and a fresh Room read.
+
+The schema-2 migration fixture populates an existing lab with attendance and prework/report statuses plus a personal project, milestone and completed TODO. Schema 3 retains every value and defaults the existing lab to Experiment-based and the project to Personal. The schema-1 fixture now tests the full 1 → 2 → 3 path. Schema validation passes; no destructive migration is configured.
+
+The lab-type release passed **80 JVM tests (65 domain + 15 app) and 31 device tests**, with three expected opt-in skips. Its database schema 3 is retained in the exported schema history; current deadline results are recorded above.
+
+## Back navigation, Projects and dates
+
+Page navigation now stores an independent history for each main tab. Toolbar Back and Android Back pop the same history. Per-page saved state retains the course section, calendar date and scroll position. Reselecting the current main tab returns to its root; switching between main tabs retains their histories. External widget links have a meaningful root instead of an empty Back history. Resetting onboarding clears navigation history.
+
+Four new device tests exercise attendance Present/Absent through both Back controls; restoration after activity recreation; the Course Schedule section and its previous scroll position; chapter, assessment, assignment and Settings return paths; opening Calendar from Today and restoring its selected date; and creating/editing a project with a human-readable finish date. Six JVM navigation tests cover complete ancestry, independent tab histories, external links, duplicate-page prevention and serialization/restoration.
+
+Projects replaces Calendar in the main navigation bar. Its overview separates active and paused projects and shows completed TODOs, milestone counts, the next milestone and deadlines. Calendar remains available through Today's calendar icon and Calendar link. Exam focus continues to pause project suggestions without hiding deadlines.
+
+Four date tests verify `10 Aug, 2026`, month/year boundaries, case-insensitive typed input, ISO storage compatibility, leap days, invalid-date rejection and device-locale independence. Shared labels also format course/semester dates, calendar fields, project/assignment deadlines, reminders, update-check timestamps and widget dates. Android's native picker keeps its own system layout; the app fields display the requested format after selection.
+
+The navigation release passed **73 JVM tests and 27 device tests**, with three expected opt-in skips. That release did not change the database schema; current lab-type migration results are recorded above.
+
+## Home-screen agenda widget
+
+The widget was placed through **Settings → Home-screen widgets → Add agenda widget** and the real Pixel launcher's placement prompt. Screenshots show native launcher-hosted RemoteViews at 1080 × 2400, not mockups. Paper and Charcoal were visually checked against the same wallpaper; the wallpaper is visible through the rounded background. The widget also shares the app's Warm Sand, Midnight and system palettes through the same color-scheme function.
+
+Launcher checks covered vertical resizing, scrolling forward to later quizzes and assignment deadlines, opening a class's attendance/reschedule screen, and using **+** to open the Add Quiz editor. Changing a synthetic TODO from pending to complete and selecting Charcoal refreshed the placed widget: its count changed from four to three. Screenshot fixtures wait for queued refresh work before instrumentation ends, because exiting instrumentation can terminate pending background rendering.
+
+Six new deterministic agenda tests cover actual rescheduled times, cancelled/finished/ongoing classes, exam class suppression and focus pauses while keeping deadline warnings, completed tasks/skipped routines/paused projects, provisional exams across the year boundary, the seven-day window, stable ordering of simultaneous events, empty data, and independent lab prework/report counts. A device assertion verifies the registered provider, resize support, periodic refresh and picker preview. Its opt-in demo fixture also passed separately.
+
+The widget's initial full regression contained **63 JVM tests (54 domain + 9 app)** and **23 passing device tests**, with three expected opt-in skips. Lint had zero errors; its 17 warnings and three hints concerned existing dependency/configuration notices. No database schema or personal-data migration was needed for this widget. Current regression totals are recorded above.
+
+Screenshots: `agenda-paper-home.png`, `agenda-charcoal-home.png`, `agenda-compact-home.png`, and `agenda-scrolled-home.png` under `artifacts/screenshots/`. Curated Paper/Charcoal examples are also in `docs/screenshots/`. Physical-phone behavior and launchers other than Pixel Launcher were not tested; Android may delay background widget refreshes.
 
 ## In-app updater
 
@@ -77,12 +121,12 @@ The paths below are local build/delivery outputs and are excluded from the sourc
 - `artifacts/release/`: the development APK as `Stillday.apk`, generated `update.json`, and checksums for a manual release using the existing development key.
 - `artifacts/screenshots/`: Pixel 7 screenshots, including light/dark themes, large text, manual Semester 7 setup, independently dated semesters, and exercise/example entry.
 - `artifacts/test-results/`: XML results, build log, and lint report.
-- `app/schemas/`: exported Room schemas 1 and 2.
+- `app/schemas/`: exported Room schemas 1, 2, 3 and 4.
 
 ## Practical limits
 
 - Tests ran on an emulator, not a physical Pixel 7. Other Android API levels and OEM battery behavior were not exercised.
 - The widget entry activity was tested; manual launcher pinning was not automated.
 - Reminder scheduling, permission handling, and notification creation passed. Android's inexact alarms and battery policies can delay actual delivery; long-duration idle delivery was not measured.
-- The current database version is 2, with a tested migration from version 1. Future upgrades must add and test explicit migrations; destructive migration is disabled.
+- The current database version is 4, with tested migrations from versions 1, 2 and 3. Future upgrades must add and test explicit migrations; destructive migration is disabled.
 - Exam capacity warnings are estimates. They do not guarantee retention or sufficient preparation when the available time is too small.

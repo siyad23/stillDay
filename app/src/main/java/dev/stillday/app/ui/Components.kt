@@ -27,6 +27,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 fun String.pretty(): String = lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+fun Course.typeLabel(): String = if (type == CourseType.THEORY) "Theory" else if (isProjectLab) "Project-based lab" else "Experiment-based lab"
 fun ChapterItemKind.label(): String = when (this) {
     ChapterItemKind.TOPIC -> "Topic"; ChapterItemKind.EXERCISE -> "Exercise"; ChapterItemKind.EXAMPLE -> "Example problem"
 }
@@ -34,8 +35,11 @@ fun Topic.syllabusLabel(): String = if (kind == ChapterItemKind.TOPIC) title els
 fun PracticeStatus.label(): String = when (this) {
     PracticeStatus.NOT_STARTED -> "Not started"; PracticeStatus.IN_PROGRESS -> "In progress"; PracticeStatus.SOLVED -> "Solved"
 }
-fun dateLabel(value: String): String = runCatching { value.take(10).date().format(DateTimeFormatter.ofPattern("d MMM")) }.getOrDefault(value)
+fun dateLabel(value: String): String = DisplayDates.label(value)
 fun timeLabel(value: String): String = value.substringAfter('T').take(5)
+fun Experiment.workSummary(): String = "Prework: ${prework.name.pretty()}" +
+    (preworkDueAt?.let { " · due ${dateLabel(it)} · ${timeLabel(it)}" } ?: "") +
+    "\nReport: ${report.name.pretty()}" + (reportDueAt?.let { " · due ${dateLabel(it)} · ${timeLabel(it)}" } ?: "")
 fun minutesLabel(minutes: Int): String = if (minutes >= 60) "${minutes / 60}h${if (minutes % 60 != 0) " ${minutes % 60}m" else ""}" else "${minutes}m"
 
 @Composable fun Page(content: @Composable ColumnScope.() -> Unit) {
@@ -110,13 +114,16 @@ data class FormSpec(val title: String, val fields: List<FormField>, val descript
     }
 }
 
-@Composable fun DateTimeField(label: String, value: String, isDate: Boolean, onChange: (String) -> Unit) {
+@Composable fun DateTimeField(label: String, value: String, isDate: Boolean, isError: Boolean = false, onChange: (String) -> Unit) {
     val context = LocalContext.current
     val pickerTheme = if (MaterialTheme.colorScheme.background.luminance() < 0.5f) dev.stillday.app.R.style.Theme_Stillday_Picker_Dark else dev.stillday.app.R.style.Theme_Stillday_Picker_Light
-    OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+    OutlinedTextField(if (isDate) dateLabel(value) else value, { text ->
+        onChange(if (isDate) runCatching { DisplayDates.parse(text).toString() }.getOrDefault(text) else text)
+    }, label = { Text(label) }, isError = isError, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        placeholder = if (isDate) { { Text("10 Aug, 2026") } } else null,
         trailingIcon = { IconButton(onClick = {
             if (isDate) {
-                val day = runCatching { value.date() }.getOrElse { LocalDate.now() }
+                val day = runCatching { DisplayDates.parse(value) }.getOrElse { LocalDate.now() }
                 android.app.DatePickerDialog(context, pickerTheme, { _, year, month, date -> onChange(LocalDate.of(year, month + 1, date).toString()) }, day.year, day.monthValue - 1, day.dayOfMonth).show()
             } else {
                 val time = runCatching { java.time.LocalTime.parse(value) }.getOrElse { java.time.LocalTime.of(10, 0) }
@@ -177,7 +184,8 @@ fun <T : Enum<T>> Array<T>.choices(): List<Choice> = map { Choice(it.name, it.na
 }
 fun Map<String, String>.required(key: String): String = getValue(key).trim().also { require(it.isNotEmpty()) { "Enter $key." } }
 fun Map<String, String>.number(key: String, range: IntRange): Int = required(key).toIntOrNull()?.also { require(it in range) { "$key must be ${range.first}–${range.last}." } } ?: error("$key must be a number.")
-fun Map<String, String>.dateValue(key: String): String = required(key).also { it.date() }
+fun Map<String, String>.dateValue(key: String): String = runCatching { DisplayDates.parse(required(key)).toString() }
+    .getOrElse { error("Enter $key as 10 Aug, 2026, or choose a date.") }
 fun Map<String, String>.timeValue(key: String): String = required(key).also { java.time.LocalTime.parse(it) }
 fun Map<String, String>.at(date: String = "date", time: String = "time"): String = "${dateValue(date)}T${timeValue(time)}".dateTime().toString()
 val weekdayChoices = java.time.DayOfWeek.entries.map { Choice(it.value.toString(), it.name.pretty()) }

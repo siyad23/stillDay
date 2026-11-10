@@ -9,6 +9,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import dev.stillday.app.PlannerViewModel
 import dev.stillday.app.data.AppState
 import dev.stillday.domain.*
@@ -22,7 +24,7 @@ import dev.stillday.domain.*
         if (state.data.semesters.isEmpty()) EmptyState("Add your first semester", "Start with the semester dates, then add your courses.")
         state.data.semesters.sortedBy { it.start }.forEach { semester ->
             QuietCard {
-                ItemRow(semester.title, "${dateLabel(semester.start)} – ${dateLabel(semester.end)} · ${semester.start.take(4)}",
+                ItemRow(semester.title, "${dateLabel(semester.start)} – ${dateLabel(semester.end)}",
                     trailing = if (today in semester.start..semester.end) "Current" else null, onClick = { navigate("semester:${semester.id}") })
                 val courses = state.data.courses.filter { it.semesterId == semester.id }
                 Text("${courses.size} courses · ${state.data.periods.count { it.semesterId == semester.id }} exam periods", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -36,12 +38,12 @@ import dev.stillday.domain.*
     val courses = state.data.courses.filter { it.semesterId == id }
     Page {
         Text(semester.title, style = MaterialTheme.typography.headlineLarge)
-        Text("${semester.start} to ${semester.end}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${dateLabel(semester.start)} to ${dateLabel(semester.end)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = { open(Forms.semester(vm, semester)) }) { Text("Edit semester dates") }
         SectionTitle("Courses", "Add course") { open(Forms.course(vm, semester.id)) }
         courses.forEach { course ->
             val attendance = Recurrence.attendance(course.id, state.data)
-            ItemRow(course.name, "${course.code} · ${course.type.name.pretty()}",
+            ItemRow(course.name, "${course.code} · ${course.typeLabel()}",
                 trailing = if (attendance.second > 0) "${attendance.first * 100 / attendance.second}%" else null,
                 onClick = { navigate("course:${course.id}") })
         }
@@ -66,7 +68,7 @@ import dev.stillday.domain.*
     Page {
         Text(course.name, style = MaterialTheme.typography.headlineLarge)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("${course.code} · ${course.type.name.pretty()}", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${course.code} · ${course.typeLabel()}", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
             IconButton(onClick = { open(Forms.course(vm, course.semesterId, course)) }) { Icon(Icons.Outlined.Edit, "Edit course") }
         }
         ScrollableTabRow(tab, edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.background, divider = {}) {
@@ -113,16 +115,23 @@ import dev.stillday.domain.*
                 if (s.assessments.none { it.courseId == id }) EmptyState("No assessments yet", "Add a quiz now, or an exam with provisional dates from the semester's exam period.")
             }
             3 -> {
+                if (course.isProjectLab) {
+                    SectionTitle("Lab projects", "Add project") { open(Forms.project(vm, courseId = course.id)) }
+                    val projects = s.projects.filter { it.courseId == course.id }.sortedBy { it.dueDate }
+                    projects.forEach { ProjectCard(vm, state, it, navigate) }
+                    if (projects.isEmpty()) EmptyState("Build this lab through projects", "Add a lab project, then break it into milestones and TODOs. It will also appear in Projects.")
+                }
                 SectionTitle("Assignments", "Add") { open(Forms.assignment(vm, id)) }
                 s.assignments.filter { it.courseId == id }.sortedBy { it.dueAt }.forEach { a ->
                     ItemRow(a.title, "Due ${dateLabel(a.dueAt)} · ${timeLabel(a.dueAt)}", if (a.completed) "Submitted" else null) { navigate("assignment:${a.id}") }
                 }
-                if (course.type == CourseType.LAB) {
-                    SectionTitle("Experiments")
-                    val occurrenceIds = s.occurrences.filter { it.courseId == id }.map { it.id }
-                    s.experiments.filter { it.occurrenceId in occurrenceIds }.forEach { e -> ItemRow(e.title,
-                        "Prework: ${e.prework.name.pretty()}\nReport: ${e.report.name.pretty()}", onClick = { open(Forms.experiment(vm, e.occurrenceId, e)) }) }
-                    Text("Open a lab occurrence under Schedule to add its experiments.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val occurrenceIds = s.occurrences.filter { it.courseId == id }.map { it.id }.toSet()
+                val experiments = s.experiments.filter { it.occurrenceId in occurrenceIds }
+                if (course.isExperimentLab || experiments.isNotEmpty()) {
+                    SectionTitle(if (course.isExperimentLab) "Experiments" else "Previous experiments")
+                    experiments.forEach { e -> ItemRow(e.title,
+                        e.workSummary(), onClick = { open(Forms.experiment(vm, e.occurrenceId, e)) }) }
+                    Text(if (course.isExperimentLab) "Open a lab occurrence under Schedule to add its experiments." else "Saved experiment records remain available after changing the lab type.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -201,7 +210,7 @@ import dev.stillday.domain.*
     }
 }
 
-@Composable fun OccurrenceScreen(vm: PlannerViewModel, state: AppState, id: String, open: (FormSpec) -> Unit) {
+@Composable fun OccurrenceScreen(vm: PlannerViewModel, state: AppState, id: String, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     val s = state.data
     val o = s.occurrences.find { it.id == id } ?: return
     val course = s.courses.find { it.id == o.courseId } ?: return
@@ -218,16 +227,23 @@ import dev.stillday.domain.*
         }
         SectionTitle("Attendance")
         Attendance.entries.forEach { status -> RadioRow(status.name.pretty(), o.attendance == status, { vm.edit("Attendance saved") { it.copy(occurrences = it.occurrences.map { row -> if (row.id == id) row.copy(attendance = status) else row }) } }) }
-        if (course.type == CourseType.LAB) {
-            SectionTitle("Experiments", "Add") { open(Forms.experiment(vm, id)) }
+        if (course.isProjectLab) {
+            SectionTitle("Lab projects", "Add project") { open(Forms.project(vm, courseId = course.id)) }
+            s.projects.filter { it.courseId == course.id }.forEach { project ->
+                ItemRow(project.title, "Finish ${dateLabel(project.dueDate)}", if (project.active) "Active" else "Paused") { navigate("project:${project.id}") }
+            }
+            Text("This lab uses project milestones and TODOs.", style = MaterialTheme.typography.bodyMedium)
+        }
+        if (course.isExperimentLab || s.experiments.any { it.occurrenceId == id }) {
+            SectionTitle(if (course.isExperimentLab) "Experiments" else "Previous experiments", if (course.isExperimentLab) "Add" else null) { open(Forms.experiment(vm, id)) }
             s.experiments.filter { it.occurrenceId == id }.forEach { experiment ->
-                QuietCard { ItemRow(experiment.title, "Prework: ${experiment.prework.name.pretty()}\nReport: ${experiment.report.name.pretty()}", onClick = { open(Forms.experiment(vm, id, experiment)) }) }
+                QuietCard { ItemRow(experiment.title, experiment.workSummary(), onClick = { open(Forms.experiment(vm, id, experiment)) }) }
             }
         }
     }
 }
 
-@Composable fun WorkScreen(vm: PlannerViewModel, state: AppState, id: String, project: Boolean, open: (FormSpec) -> Unit) {
+@Composable fun WorkScreen(vm: PlannerViewModel, state: AppState, id: String, project: Boolean, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     val s = state.data
     val p = s.projects.find { it.id == id }
     val a = s.assignments.find { it.id == id }
@@ -236,6 +252,13 @@ import dev.stillday.domain.*
     val due = if (project) p!!.dueDate else a!!.dueAt
     Page {
         Text(title, style = MaterialTheme.typography.headlineLarge)
+        if (project) {
+            val course = s.courses.find { it.id == p!!.courseId }
+            if (course != null) {
+                val semester = s.semesters.find { it.id == course.semesterId }
+                ItemRow("Lab project · ${course.name}", listOf(course.code, semester?.title.orEmpty()).filter { it.isNotBlank() }.joinToString(" · ")) { navigate("course:${course.id}") }
+            } else Text("Personal project", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
         Text("Due ${dateLabel(due)}${if (!project) " · ${timeLabel(due)}" else ""}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = { open(if (project) Forms.project(vm, p) else Forms.assignment(vm, a!!.courseId, a)) }) { Text("Edit details") }
         if (project) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -249,7 +272,8 @@ import dev.stillday.domain.*
         s.milestones.filter { it.ownerId == id && it.project == project }.forEach { milestone -> QuietCard {
             ItemRow(milestone.title, "Finish ${dateLabel(milestone.dueDate)}", onClick = { open(Forms.milestone(vm, id, project, due, milestone)) })
             s.todos.filter { it.milestoneId == milestone.id }.forEach { todo -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(todo.completed, { checked -> vm.edit("TODO updated") { it.copy(todos = it.todos.map { row -> if (row.id == todo.id) row.copy(completed = checked) else row }) } })
+                Checkbox(todo.completed, { checked -> vm.edit("TODO updated") { it.copy(todos = it.todos.map { row -> if (row.id == todo.id) row.copy(completed = checked) else row }) } },
+                    modifier = Modifier.semantics { contentDescription = "Complete ${todo.title}" })
                 Column(Modifier.weight(1f)) { Text(todo.title); todo.plannedDate?.let { Text(dateLabel(it), style = MaterialTheme.typography.labelMedium) } }
                 IconButton(onClick = { open(Forms.todo(vm, milestone, todo)) }) { Icon(Icons.Outlined.Edit, "Edit TODO") }
             } }

@@ -1,1 +1,9 @@
-<resources><string name="widget_description">Quickly add a course quiz and its syllabus</string></resources>
+<resources>
+    <string name="widget_description">Quickly add a course quiz and its syllabus</string>
+    <string name="agenda_widget_name">Stillday agenda</string>
+    <string name="agenda_widget_description">A quiet, scrollable week of classes, quizzes, deadlines and tasks</string>
+    <string name="agenda_widget_preview_subtitle">Your next seven days</string>
+    <string name="agenda_widget_preview_tasks">3 pending tasks</string>
+    <string name="agenda_widget_preview_class">Engineering Mathematics\n10:00–11:00 · Room 301</string>
+    <string name="agenda_widget_preview_lab">Circuits Lab\n09:00–11:30 · Lab 204</string>
+</resources>

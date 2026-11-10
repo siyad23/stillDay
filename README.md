@@ -54,11 +54,14 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Quizzes and provisional/detailed exams with whole-chapter or individual topic/problem syllabus selection and independent preparation checklists.
 - Exam periods that suspend classes and automatically activate an editable focus window. Assignment/project suggestions pause while deadline warnings remain visible.
 - Assignments and active/paused personal projects, each with milestones and TODOs. Assignment submission can be marked complete.
-- Lab experiments with independent prework/report statuses, including Not Required; pending lab work appears on Today.
+- A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today. Back restores the actual previous page, its selected section and scroll position.
+- Lab experiments with independent prework/report statuses and submission deadlines, including overdue tracking, Calendar/widget entries and reminders; pending lab work appears on Today.
+- [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
 - Weekly hall meals, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
 - One-off and bounded recurring routines with completion, skipping, and occurrence rescheduling.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
 - Home-screen Add Quiz widget, daily briefings, event/deadline reminders, and validated JSON export/import.
+- A translucent, theme-matched [home-screen agenda widget](docs/WIDGETS.md), with grouped dates, scrolling/resizing, event links, and quick quiz capture.
 - GitHub in-app update checks, verified APK downloads, and Android's installation prompt; daily automatic checks can be disabled in Settings.
 
 ## Study policy
@@ -81,13 +84,15 @@ Timetable edits preserve recorded attendance, past occurrences, and explicit exc
 
 University schedules use the configured university timezone even if the device timezone changes. Travel arrival/departure times use that same configured timezone. Explicit travel overrides assumptions. A one-way home trip infers return on the next Monday, one hour before its first class, or 08:00 without Monday classes. Home meals are flexible, and Other/in-transit meals remain unplanned unless overridden.
 
+Displayed dates use `10 Aug, 2026` consistently, including editable fields, reminders and the agenda widget. Date pickers and typed dates both work; database and backup dates retain their ISO format for compatibility and sorting.
+
 Reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay delivery. Notification permission is enabled from Settings. No exact-alarm special access or location access is required. Internet access is used for GitHub release checks and APK downloads; university and personal records stay on the device. Android's install-from-this-source permission is requested only when installing an update.
 
 ## Architecture and tests
 
 - `domain`: serializable entities, recurrence, location/meal resolution, validation, focus calculation, and deterministic study planning. JVM tests include a 150-day, 180-topic simulation with mixed difficulty and missed weeks.
 - `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, Glance widget, Android reminders, and instrumented UI/persistence tests.
-- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status while retaining semester dates, topics, and review history. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
+- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
 
 ```powershell
 .\scripts\Build.ps1

@@ -31,18 +31,17 @@ import java.time.DayOfWeek
             TextButton(onClick = { selected = vm.repository.today().toString() }) { Text("Today") }
             TextButton(onClick = { selected = date.plusDays(if (week) 7 else 1).toString() }) { Text("Next") }
         }
-        OutlinedTextField(selected, { selected = it; dateError = runCatching { it.date() }.isFailure }, label = { Text("Date · YYYY-MM-DD") },
-            isError = dateError, modifier = Modifier.fillMaxWidth(), singleLine = true)
+        DateTimeField("Date", selected, true, isError = dateError) { selected = it; dateError = runCatching { DisplayDates.parse(it) }.isFailure }
         Row(verticalAlignment = Alignment.CenterVertically) { Switch(week, { week = it }); Text("  Show whole week") }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             (0..6).forEach { offset ->
                 val day = monday.plusDays(offset.toLong())
-                FilterChip(day == date, { selected = day.toString() }, label = { Text("${day.dayOfWeek.name.take(3).pretty()} ${day.dayOfMonth}") })
+                FilterChip(day == date, { selected = day.toString() }, label = { Text("${day.dayOfWeek.name.take(3).pretty()} · ${dateLabel(day.toString())}") })
             }
         }
         val days = if (week) (0..6).map { monday.plusDays(it.toLong()) } else listOf(date)
         days.forEach { day ->
-            SectionTitle(day.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMM")))
+            SectionTitle(dateLabel(day.toString()))
             val events = mutableListOf<CalendarItem>()
             s.occurrences.filter { it.start.take(10) == day.toString() }.forEach { o ->
                 val suppressed = Recurrence.suppressed(o, s)
@@ -55,7 +54,10 @@ import java.time.DayOfWeek
             s.travel.filter { it.departure.take(10) == day.toString() }.forEach { t -> events += CalendarItem(timeLabel(t.departure),
                 "Travel to ${if (t.destination == Place.OTHER) t.destinationName else t.destination.name.pretty()}", "Arrive ${dateLabel(t.arrival)} ${timeLabel(t.arrival)}") }
             s.assignments.filter { it.dueAt.take(10) == day.toString() && !it.completed }.forEach { a -> events += CalendarItem(timeLabel(a.dueAt), a.title, "Assignment submission", "assignment:${a.id}") }
-            s.projects.filter { it.dueDate == day.toString() && it.active }.forEach { p -> events += CalendarItem("23:59", p.title, "Project finish date", "project:${p.id}") }
+            s.projects.filter { it.dueDate == day.toString() && it.active }.forEach { p -> events += CalendarItem("23:59", p.title, if (p.courseId == null) "Project finish date" else "Lab project finish date", "project:${p.id}") }
+            LabSubmissions.pending(s).filter { it.dueAt?.toLocalDate() == day }.forEach { item ->
+                events += CalendarItem(timeLabel(item.dueAt.toString()), item.title, "Submission deadline", item.route)
+            }
             s.milestones.filter { it.dueDate == day.toString() }.forEach { m -> events += CalendarItem("23:59", m.title, "Milestone finish date", "${if (m.project) "project" else "assignment"}:${m.ownerId}") }
             s.routineOccurrences.filter { it.date == day.toString() && !it.skipped }.forEach { r -> events += CalendarItem(r.time,
                 s.routines.find { it.id == r.routineId }?.title ?: "Routine", if (r.completed) "Completed" else "Routine") }
@@ -74,7 +76,8 @@ import java.time.DayOfWeek
 private data class CalendarItem(val time: String, val title: String, val subtitle: String, val route: String? = null)
 
 @Composable fun LifeScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
-    var tab by rememberSaveable { mutableStateOf(0) }
+    var savedTab by rememberSaveable { mutableStateOf(0) }
+    val tab = savedTab.coerceIn(0, 2)
     var weekday by rememberSaveable { mutableStateOf(vm.repository.today().dayOfWeek.value) }
     var expandedRoutine by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTravel by remember { mutableStateOf<TravelLeg?>(null) }
@@ -82,7 +85,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
     Page {
         Text("The everyday, handled.", style = MaterialTheme.typography.headlineLarge)
         ScrollableTabRow(tab, edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.background, divider = {}) {
-            listOf("Meals", "Travel", "Routines", "Projects").forEachIndexed { index, title -> Tab(tab == index, { tab = index }, text = { Text(title) }) }
+            listOf("Meals", "Travel", "Routines").forEachIndexed { index, title -> Tab(tab == index, { savedTab = index }, text = { Text(title) }) }
         }
         when (tab) {
             0 -> {
@@ -145,21 +148,55 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
                 } }
                 if (s.routines.isEmpty()) EmptyState("Make repeat decisions once", "Add laundry, cleaning, bedsheets, or a one-off activity.")
             }
-            3 -> {
-                SectionTitle("Personal projects", "Add project") { open(Forms.project(vm)) }
-                s.projects.sortedBy { it.dueDate }.forEach { project -> QuietCard {
-                    ItemRow(project.title, "Finish ${dateLabel(project.dueDate)}", if (project.active) "Active" else "Paused", onClick = { navigate("project:${project.id}") })
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(project.active, { active -> vm.edit("Project updated") { it.copy(projects = it.projects.map { row -> if (row.id == project.id) row.copy(active = active) else row }) } })
-                        Text("  Include in daily activities", style = MaterialTheme.typography.bodyMedium)
-                    }
-                } }
-                if (s.projects.isEmpty()) EmptyState("Choose what gets your attention", "Only active projects contribute TODOs to Today. Pause a project whenever you need to focus elsewhere.")
-            }
         }
     }
     deleteTravel?.let { trip -> AlertDialog(onDismissRequest = { deleteTravel = null }, title = { Text("Remove this trip?") },
         text = { Text("Both the outgoing and return travel will be removed. Meals will be recalculated.") },
         confirmButton = { TextButton(onClick = { vm.edit("Trip removed") { it.copy(travel = it.travel.filterNot { row -> row.tripId == trip.tripId }) }; deleteTravel = null }) { Text("Remove") } },
         dismissButton = { TextButton(onClick = { deleteTravel = null }) { Text("Keep") } }) }
+}
+
+@Composable fun ProjectsScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
+    val data = state.data
+    val today = vm.repository.today()
+    val focus = Recurrence.focus(today, data.periods, state.preferences).active
+    Page {
+        Text("Your projects.", style = MaterialTheme.typography.headlineLarge)
+        Text("${data.projects.count { it.active }} active · ${data.projects.count { !it.active }} paused",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (focus) QuietCard {
+            Text("Exam focus", style = MaterialTheme.typography.titleMedium)
+            Text("Project tasks are paused in Today while you study. Your milestones and deadlines remain visible here.", style = MaterialTheme.typography.bodyMedium)
+        }
+        SectionTitle("All projects", "Add project") { open(Forms.project(vm)) }
+        if (data.projects.isEmpty()) EmptyState("Choose what gets your attention", "Add a project, break it into milestones and TODOs, then keep only the projects you want to work on active.")
+        listOf(true, false).forEach { active ->
+            val projects = data.projects.filter { it.active == active }.sortedBy { it.dueDate }
+            if (projects.isNotEmpty()) Text(if (active) "ACTIVE" else "PAUSED", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            projects.forEach { project -> ProjectCard(vm, state, project, navigate) }
+        }
+    }
+}
+
+@Composable fun ProjectCard(vm: PlannerViewModel, state: AppState, project: Project, navigate: (String) -> Unit) {
+    val data = state.data
+    val today = vm.repository.today()
+    val course = data.courses.find { it.id == project.courseId }
+    val milestones = data.milestones.filter { it.project && it.ownerId == project.id }.sortedBy { it.dueDate }
+    val ids = milestones.map { it.id }.toSet()
+    val todos = data.todos.filter { it.milestoneId in ids }
+    val completed = todos.count { it.completed }
+    val next = milestones.firstOrNull { milestone -> data.todos.none { it.milestoneId == milestone.id } || data.todos.any { it.milestoneId == milestone.id && !it.completed } }
+    QuietCard {
+        Text(if (course == null) "Personal project" else "Lab project · ${course.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        ItemRow(project.title, "Finish ${dateLabel(project.dueDate)}", if (project.dueDate.date() < today && completed < todos.size) "Overdue" else null,
+            onClick = { navigate("project:${project.id}") })
+        if (todos.isNotEmpty()) LinearProgressIndicator(progress = { completed.toFloat() / todos.size }, modifier = Modifier.fillMaxWidth())
+        Text("$completed/${todos.size} tasks complete · ${milestones.size} milestones", style = MaterialTheme.typography.bodyMedium)
+        next?.let { Text("Next: ${it.title} · ${dateLabel(it.dueDate)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(project.active, { enabled -> vm.edit("Project updated") { s -> s.copy(projects = s.projects.map { if (it.id == project.id) it.copy(active = enabled) else it }) } })
+            Text("  Include in daily activities", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
 }

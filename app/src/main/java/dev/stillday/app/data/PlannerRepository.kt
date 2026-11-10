@@ -46,6 +46,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
             Validation.snapshot(next)
             database.planner().replace(next)
             mutable.value = mutable.value.copy(data = next)
+            dev.stillday.app.AgendaWidgets.refresh(context)
         }
     }
 
@@ -54,6 +55,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
         Validation.preferences(prefs)
         context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(prefs) }
         mutable.value = mutable.value.copy(preferences = prefs)
+        dev.stillday.app.AgendaWidgets.refresh(context)
     }
 
     suspend fun setup(title: String, start: LocalDate, expectedEnd: LocalDate) {
@@ -110,6 +112,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
         database.planner().replace(backup.data)
         context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(backup.preferences) }
         mutable.value = AppState(backup.data, backup.preferences, true)
+        dev.stillday.app.AgendaWidgets.refresh(context)
     }
 
     suspend fun loadDemo() {

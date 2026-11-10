@@ -46,11 +46,12 @@ class MigrationTest {
             old.execSQL("INSERT INTO topics VALUES ('t','ch','Existing topic',0,4,20,10,1,2.1,3,7,'2026-11-10','GOOD','2026-11-03',0,0)")
             old.execSQL("INSERT INTO review_events VALUES ('r','t','2026-11-03','GOOD',10,'REVIEW',1,1)")
             helper.close()
-            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_1_2).build()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_1_2, PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4).build()
             try {
                 val data = upgraded.planner().load()
                 assertEquals("Semester 7", data.semesters.single().title)
                 assertEquals("2026-06-27", data.semesters.single().end)
+                assertEquals(LabType.EXPERIMENT, data.courses.single().labType)
                 assertEquals("Existing topic", data.topics.single().title)
                 assertEquals(ChapterItemKind.TOPIC, data.topics.single().kind)
                 assertEquals(PracticeStatus.NOT_STARTED, data.topics.single().practiceStatus)
@@ -58,6 +59,95 @@ class MigrationTest {
                 assertEquals("2026-11-10", data.topics.single().nextReview)
                 assertEquals(Rating.GOOD, data.reviews.single().rating)
                 assertEquals(10, data.reviews.single().minutes)
+            } finally { upgraded.close() }
+        } finally { helper.close(); context.deleteDatabase(name) }
+    }
+
+    @Test fun versionTwoUpgradePreservesLabReportsAttendanceAndPersonalProjectWork() = runBlocking<Unit> {
+        val context = ApplicationProvider.getApplicationContext<StilldayApplication>()
+        val name = "lab-migration-${newId()}.db"
+        val schema = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open("dev.stillday.app.data.PlannerDatabase/2.json")
+            .bufferedReader().use { it.readText() }).getJSONObject("database")
+        val helper = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context).name(name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(2) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    val entities = schema.getJSONArray("entities")
+                    for (i in 0 until entities.length()) {
+                        val entity = entities.getJSONObject(i); val table = entity.getString("tableName")
+                        db.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                        val indices = entity.optJSONArray("indices") ?: org.json.JSONArray()
+                        for (j in 0 until indices.length()) db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+                    }
+                    val setup = schema.getJSONArray("setupQueries")
+                    for (i in 0 until setup.length()) db.execSQL(setup.getString(i))
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = error("Unexpected fixture upgrade")
+            }).build())
+        try {
+            val old = helper.writableDatabase
+            old.execSQL("INSERT INTO semesters VALUES ('s','Semester 7','2026-10-01','2027-03-01')")
+            old.execSQL("INSERT INTO courses VALUES ('lab','s','Existing lab','EEE 202','LAB','Lab 204')")
+            old.execSQL("INSERT INTO schedule_rules VALUES ('rule','lab',2,'09:00',120,1,'2026-10-01')")
+            old.execSQL("INSERT INTO occurrences VALUES ('o','lab','rule','2026-11-10','2026-11-10T09:00','2026-11-10T11:00','Lab 204',0,0,'PRESENT')")
+            old.execSQL("INSERT INTO experiments VALUES ('e','o','Existing experiment','WRITTEN','RECEIVED')")
+            old.execSQL("INSERT INTO projects VALUES ('p','Existing personal project','2027-01-01',1)")
+            old.execSQL("INSERT INTO milestones VALUES ('m','p',1,'Existing milestone','2026-12-01',0)")
+            old.execSQL("INSERT INTO todos VALUES ('t','m','Existing TODO',NULL,1,0)")
+            helper.close()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4).build()
+            try {
+                val data = upgraded.planner().load()
+                assertTrue(data.courses.single().isExperimentLab)
+                assertEquals(Attendance.PRESENT, data.occurrences.single().attendance)
+                assertEquals(WorkStatus.WRITTEN, data.experiments.single().prework)
+                assertEquals(WorkStatus.RECEIVED, data.experiments.single().report)
+                assertNull(data.experiments.single().preworkDueAt)
+                assertNull(data.experiments.single().reportDueAt)
+                assertNull(data.projects.single().courseId)
+                assertEquals("Existing milestone", data.milestones.single().title)
+                assertTrue(data.todos.single().completed)
+                Validation.snapshot(data)
+            } finally { upgraded.close() }
+        } finally { helper.close(); context.deleteDatabase(name) }
+    }
+
+    @Test fun versionThreeUpgradeKeepsExistingExperimentStatusesAndAddsEmptyDeadlines() = runBlocking<Unit> {
+        val context = ApplicationProvider.getApplicationContext<StilldayApplication>()
+        val name = "deadline-migration-${newId()}.db"
+        val schema = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open("dev.stillday.app.data.PlannerDatabase/3.json")
+            .bufferedReader().use { it.readText() }).getJSONObject("database")
+        val helper = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context).name(name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(3) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    val entities = schema.getJSONArray("entities")
+                    for (i in 0 until entities.length()) {
+                        val entity = entities.getJSONObject(i); val table = entity.getString("tableName")
+                        db.execSQL(entity.getString("createSql").replace("\${TABLE_NAME}", table))
+                        val indices = entity.optJSONArray("indices") ?: org.json.JSONArray()
+                        for (j in 0 until indices.length()) db.execSQL(indices.getJSONObject(j).getString("createSql").replace("\${TABLE_NAME}", table))
+                    }
+                    val setup = schema.getJSONArray("setupQueries")
+                    for (i in 0 until setup.length()) db.execSQL(setup.getString(i))
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = error("Unexpected fixture upgrade")
+            }).build())
+        try {
+            helper.writableDatabase.execSQL("INSERT INTO semesters VALUES ('s','Semester 7','2026-10-01','2027-03-01')")
+            helper.writableDatabase.execSQL("INSERT INTO courses VALUES ('lab','s','Existing lab','EEE 202','LAB','Lab 204','EXPERIMENT')")
+            helper.writableDatabase.execSQL("INSERT INTO schedule_rules VALUES ('r','lab',2,'09:00',120,1,'2026-10-01')")
+            helper.writableDatabase.execSQL("INSERT INTO occurrences VALUES ('old-occurrence','lab','r','2026-11-10','2026-11-10T09:00','2026-11-10T11:00','Lab 204',0,0,'PRESENT')")
+            helper.writableDatabase.execSQL("INSERT INTO experiments VALUES ('e','old-occurrence','Existing experiment','WRITTEN','RECEIVED')")
+            helper.close()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_3_4).build()
+            try {
+                val old = upgraded.planner().experiments().single()
+                assertEquals(WorkStatus.WRITTEN, old.prework)
+                assertEquals(WorkStatus.RECEIVED, old.report)
+                assertNull(old.preworkDueAt); assertNull(old.reportDueAt)
+                val updated = old.copy(preworkDueAt = "2026-11-10T08:00", reportDueAt = "2026-11-15T17:30")
+                upgraded.planner().experiments(listOf(updated))
+                assertEquals(updated, upgraded.planner().experiments().single())
+                Validation.snapshot(upgraded.planner().load())
             } finally { upgraded.close() }
         } finally { helper.close(); context.deleteDatabase(name) }
     }

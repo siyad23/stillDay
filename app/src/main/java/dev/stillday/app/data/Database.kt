@@ -92,7 +92,7 @@ abstract class PlannerDao {
 @Database(entities = [Semester::class, Course::class, ScheduleRule::class, Occurrence::class, Chapter::class, Topic::class,
     ExamPeriod::class, Assessment::class, AssessmentTopic::class, Assignment::class, Project::class, Milestone::class,
     Todo::class, Experiment::class, MealTemplate::class, MealOverride::class, TravelLeg::class, Routine::class,
-    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 2, exportSchema = true)
+    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 4, exportSchema = true)
 abstract class PlannerDatabase : RoomDatabase() {
     abstract fun planner(): PlannerDao
     companion object {
@@ -102,7 +102,20 @@ abstract class PlannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE topics ADD COLUMN practiceStatus TEXT NOT NULL DEFAULT 'NOT_STARTED'")
             }
         }
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE courses ADD COLUMN labType TEXT NOT NULL DEFAULT 'EXPERIMENT'")
+                db.execSQL("ALTER TABLE projects ADD COLUMN courseId TEXT DEFAULT NULL")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_projects_courseId ON projects(courseId)")
+            }
+        }
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE experiments ADD COLUMN preworkDueAt TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE experiments ADD COLUMN reportDueAt TEXT DEFAULT NULL")
+            }
+        }
         fun create(context: Context) = Room.databaseBuilder(context, PlannerDatabase::class.java, "stillday.db")
-            .addMigrations(MIGRATION_1_2).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
     }
 }

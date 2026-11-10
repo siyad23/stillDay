@@ -7,10 +7,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -18,14 +21,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.stillday.app.PlannerViewModel
 import dev.stillday.domain.*
 import java.time.LocalDate
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 private data class AssessmentRequest(val courseId: String? = null, val assessment: Assessment? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false) {
+@Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false, initialRoute: String? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
-    var route by rememberSaveable { mutableStateOf(if (openUpdates) "Settings" else "Today") }
-    var tab by rememberSaveable { mutableStateOf("Today") }
+    val destination = initialRoute?.takeIf { it in listOf("Today", "Projects", "Calendar", "University", "Life", "Settings") ||
+        it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") }
+    var navigation by rememberSaveable(stateSaver = Saver<PlannerNavigation, String>(
+        save = { Json.encodeToString(it) }, restore = { runCatching { Json.decodeFromString<PlannerNavigation>(it) }.getOrNull() })) {
+        mutableStateOf(PlannerNavigation.start(if (openUpdates) "Settings" else destination))
+    }
+    val route = navigation.route
+    val pageStates = rememberSaveableStateHolder()
+    val navigate: (String) -> Unit = { navigation = navigation.navigate(it) }
     var form by remember { mutableStateOf<FormSpec?>(null) }
     var assessment by remember { mutableStateOf<AssessmentRequest?>(null) }
     var study by remember { mutableStateOf<StudyItem?>(null) }
@@ -36,7 +48,10 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
         vm.preferences { it.copy(notifications = allowed, reminderSetupDone = true) }
     }
     LaunchedEffect(vm) { vm.events.collect { snack.showSnackbar(it) } }
-    BackHandler(route !in listOf("Today", "Calendar", "University", "Life")) { route = tab }
+    LaunchedEffect(state.ready, state.preferences.onboardingComplete) {
+        if (state.ready && !state.preferences.onboardingComplete) navigation = PlannerNavigation()
+    }
+    BackHandler(navigation.canGoBack) { navigation = navigation.back() }
     StilldayTheme(state.preferences.theme) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             if (!state.ready) {
@@ -50,15 +65,18 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                     topBar = {
                         TopAppBar(title = { Text(if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
                             style = MaterialTheme.typography.titleLarge) },
-                            navigationIcon = { if (route.contains(':') || route == "Settings") IconButton(onClick = { route = tab }) { Icon(Icons.Outlined.ArrowBack, "Back") } },
-                            actions = { IconButton(onClick = { route = "Settings" }) { Icon(Icons.Outlined.Tune, "Settings") } },
+                            navigationIcon = { if (navigation.stack.size > 1) IconButton(onClick = { navigation = navigation.back() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
+                            actions = {
+                                if (route == "Today") IconButton(onClick = { navigate("Calendar") }) { Icon(Icons.Outlined.CalendarMonth, "Open calendar") }
+                                IconButton(onClick = { navigate("Settings") }) { Icon(Icons.Outlined.Tune, "Settings") }
+                            },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
                     },
                     bottomBar = {
                         NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                            listOf("Today" to Icons.Outlined.WbSunny, "Calendar" to Icons.Outlined.CalendarMonth,
+                            listOf("Today" to Icons.Outlined.WbSunny, "Projects" to Icons.Outlined.FolderOpen,
                                 "University" to Icons.Outlined.School, "Life" to Icons.Outlined.Spa).forEach { (label, icon) ->
-                                NavigationBarItem(selected = tab == label, onClick = { tab = label; route = label }, icon = { Icon(icon, null) }, label = { Text(label) })
+                                NavigationBarItem(selected = navigation.selectedTab == label, onClick = { navigation = navigation.selectTab(label) }, icon = { Icon(icon, null) }, label = { Text(label) })
                             }
                         }
                     },
@@ -69,12 +87,12 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                 ) { padding ->
                     Box(Modifier.padding(padding)) {
                         val open: (FormSpec) -> Unit = { form = it }
-                        val navigate: (String) -> Unit = { route = it }
-                        when {
+                        pageStates.SaveableStateProvider("${navigation.selectedTab}:$route") { when {
                             route == "Today" -> TodayScreen(vm, state, open, navigate, { study = it })
                             route == "Calendar" -> CalendarScreen(vm, state, open, navigate)
                             route == "University" -> UniversityScreen(vm, state, open, navigate)
                             route == "Life" -> LifeScreen(vm, state, open, navigate)
+                            route == "Projects" -> ProjectsScreen(vm, state, open, navigate)
                             route == "Settings" -> SettingsScreen(vm, state, open, onEnableNotifications = {
                                 if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 else vm.preferences { it.copy(notifications = true) }
@@ -84,10 +102,10 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                                 onAssessment = { id, old -> assessment = AssessmentRequest(id, old) })
                             route.startsWith("chapter:") -> ChapterScreen(vm, state, route.substringAfter(':'), open, { chapterStudy = it })
                             route.startsWith("assessment:") -> AssessmentScreen(vm, state, route.substringAfter(':'), { assessment = AssessmentRequest(it.courseId, it) })
-                            route.startsWith("class:") -> OccurrenceScreen(vm, state, route.substringAfter(':'), open)
-                            route.startsWith("assignment:") -> WorkScreen(vm, state, route.substringAfter(':'), false, open)
-                            route.startsWith("project:") -> WorkScreen(vm, state, route.substringAfter(':'), true, open)
-                        }
+                            route.startsWith("class:") -> OccurrenceScreen(vm, state, route.substringAfter(':'), open, navigate)
+                            route.startsWith("assignment:") -> WorkScreen(vm, state, route.substringAfter(':'), false, open, navigate)
+                            route.startsWith("project:") -> WorkScreen(vm, state, route.substringAfter(':'), true, open, navigate)
+                        } }
                     }
                 }
             }

@@ -89,6 +89,16 @@ import java.time.ZoneId
             })
         })
         TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }) { Text("Android notification settings") }
+        SectionTitle("Home-screen widgets")
+        QuietCard {
+            Text("A quieter view of your week", style = MaterialTheme.typography.titleMedium)
+            Text("Classes, quizzes, deadlines and everyday tasks in a scrollable agenda. Follows your app theme with a softly translucent background.", style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = {
+                if (!dev.stillday.app.AgendaWidgets.pin(context)) android.widget.Toast.makeText(context,
+                    "Long-press your home screen, choose Widgets, then Stillday agenda.", android.widget.Toast.LENGTH_LONG).show()
+            }) { Text("Add agenda widget") }
+            Text("You can also long-press your home screen → Widgets → Stillday agenda. Resize it to fit your layout. The + button opens Add Quiz.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         UpdateSettings(vm.updates)
         SectionTitle("Backups")
         Text("Backups include all courses, schedules, study history and settings. Save them somewhere you can recover if your phone is lost.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

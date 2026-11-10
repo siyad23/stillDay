@@ -13,16 +13,18 @@ import java.time.format.DateTimeFormatter
 
 @Composable fun TodayScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit, study: (StudyItem) -> Unit) {
     val s = state.data
-    var date by remember { mutableStateOf(vm.repository.today()) }
-    LaunchedEffect(Unit) { while (true) { date = vm.repository.today(); kotlinx.coroutines.delay(30_000) } }
+    var now by remember { mutableStateOf(vm.repository.now()) }
+    LaunchedEffect(Unit) { while (true) { now = vm.repository.now(); kotlinx.coroutines.delay(30_000) } }
+    val date = now.toLocalDate()
     val plan = remember(date, s, state.preferences) { StudyPlanner.buildDailyPlan(date, s, state.preferences) }
     LaunchedEffect(plan) { vm.action { vm.repository.rememberPlan(plan) } }
     val classes = s.occurrences.filter { it.start.take(10) == date.toString() && !it.cancelled && !Recurrence.suppressed(it, s) }
     val assessments = s.assessments.filter { it.at?.take(10) == date.toString() }
     val todos = LifeResolver.dailyTodos(date, s, plan.focus)
     val routines = s.routineOccurrences.filter { it.date <= date.toString() && !it.completed && !it.skipped }
+    val labTasks = LabSubmissions.daily(date, s)
     Page {
-        Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(dateLabel(date.toString()), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (plan.focus) "Room to focus." else "Your day, made simpler.", style = MaterialTheme.typography.headlineLarge)
         if (state.preferences.demoData) Text("Sample data · replace it in Settings when you're ready.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         QuietCard {
@@ -34,7 +36,7 @@ import java.time.format.DateTimeFormatter
             plan.items.firstOrNull()?.let { first -> Button(onClick = { study(first) }, modifier = Modifier.fillMaxWidth()) { Text("Start studying") } }
         }
         if (plan.focus) Text("Assignments and projects are paused in your daily suggestions. Deadlines are still shown below.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SectionTitle("On the calendar", "View all") { navigate("Calendar") }
+        SectionTitle("On the calendar", "Calendar") { navigate("Calendar") }
         if (classes.isEmpty() && assessments.isEmpty()) Text("No classes or assessments today.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         (classes.map { Triple(it.start, s.courses.find { c -> c.id == it.courseId }?.name ?: "Class", "class:${it.id}") } +
             assessments.map { Triple(it.at.orEmpty(), it.title, "assessment:${it.id}") }).sortedBy { it.first }.forEach { (at, title, route) ->
@@ -57,21 +59,17 @@ import java.time.format.DateTimeFormatter
             QuietCard { Text("Plan notes", style = MaterialTheme.typography.titleMedium); plan.warnings.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
         }
         SectionTitle("Everyday tasks", "Add routine") { open(Forms.routine(vm)) }
-        if (todos.isEmpty() && routines.isEmpty()) Text("Nothing needs your attention here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        s.experiments.forEach { experiment ->
-            val occurrence = s.occurrences.find { it.id == experiment.occurrenceId }
-            if (occurrence != null && !occurrence.cancelled && !Recurrence.suppressed(occurrence, s)) {
-                val classDate = occurrence.start.take(10)
-                val pending = listOf(WorkStatus.NOT_DONE, WorkStatus.WRITTEN)
-                if (classDate in date.toString()..date.plusDays(1).toString() && experiment.prework in pending)
-                    ItemRow("Prework · ${experiment.title}", "Lab ${dateLabel(classDate)} · ${experiment.prework.name.pretty()}", onClick = { navigate("class:${occurrence.id}") })
-                if (classDate <= date.toString() && experiment.report in pending)
-                    ItemRow("Lab report · ${experiment.title}", experiment.report.name.pretty(), onClick = { navigate("class:${occurrence.id}") })
-            }
+        if (todos.isEmpty() && routines.isEmpty() && labTasks.isEmpty()) Text("Nothing needs your attention here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        labTasks.forEach { item ->
+            val due = item.dueAt?.let { "Due ${dateLabel(it.toString())} · ${timeLabel(it.toString())}${if (item.overdue(now)) " · overdue" else ""}" }
+            ItemRow(item.title, listOfNotNull(item.status.name.pretty(), due ?: "Lab ${dateLabel(item.occurrence.start)}").joinToString(" · "), onClick = { navigate(item.route) })
         }
         todos.forEach { todo -> Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(todo.completed, { checked -> vm.edit("Task updated") { it.copy(todos = it.todos.map { row -> if (row.id == todo.id) row.copy(completed = checked) else row }) } })
-            Column { Text(todo.title); Text(s.milestones.find { it.id == todo.milestoneId }?.title.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            val milestone = s.milestones.find { it.id == todo.milestoneId }
+            val project = if (milestone?.project == true) s.projects.find { it.id == milestone.ownerId } else null
+            val course = s.courses.find { it.id == project?.courseId }
+            Column { Text(todo.title); Text(listOfNotNull(course?.name ?: project?.title, milestone?.title).joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } }
         routines.take(15).forEach { row -> Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(row.completed, { checked -> vm.edit("Routine updated") { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(completed = checked) else r }) } })
@@ -82,12 +80,17 @@ import java.time.format.DateTimeFormatter
         QuietCard { LifeResolver.meals(date, s).forEach { meal ->
             Column { Text("${meal.slot} · ${meal.time}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(meal.description, style = MaterialTheme.typography.bodyMedium) }
         }; if (LifeResolver.meals(date, s).any { it.inferred }) Text("Using your assumed Monday return. Edit travel to change it.", style = MaterialTheme.typography.labelMedium) }
-        val deadlines = s.assignments.filterNot { it.completed }.map { Triple(it.dueAt.take(10), it.title, "assignment:${it.id}") } +
-            s.projects.filter { it.active }.map { Triple(it.dueDate, it.title, "project:${it.id}") }
-        val upcoming = deadlines.filter { it.first <= date.plusDays(7).toString() }.sortedBy { it.first }
+        val deadlines = s.assignments.filterNot { it.completed }.map { Triple(it.dueAt, it.title, "assignment:${it.id}") } +
+            s.projects.filter { it.active }.map { Triple(it.dueDate, it.title, "project:${it.id}") } +
+            LabSubmissions.pending(s).filter { it.dueAt != null }.map { Triple(it.dueAt.toString(), it.title, it.route) }
+        val upcoming = deadlines.filter { it.first.take(10) <= date.plusDays(7).toString() }.sortedBy { it.first }
         if (upcoming.isNotEmpty()) {
             SectionTitle(if (plan.focus) "Deadlines during focus" else "Coming due")
-            upcoming.forEach { (due, title, route) -> ItemRow(title, "Due ${dateLabel(due)}${if (due < date.toString()) " · overdue" else ""}", onClick = { navigate(route) }) }
+            upcoming.forEach { (due, title, route) ->
+                val timed = 'T' in due
+                val overdue = if (timed) due.dateTime() < now else due.date() < date
+                ItemRow(title, "Due ${dateLabel(due)}${if (timed) " · ${timeLabel(due)}" else ""}${if (overdue) " · overdue" else ""}", onClick = { navigate(route) })
+            }
         }
     }
 }

@@ -14,6 +14,7 @@ fun String.date(): LocalDate = LocalDate.parse(this)
 fun String.dateTime(): LocalDateTime = LocalDateTime.parse(this)
 
 @Serializable enum class CourseType { THEORY, LAB }
+@Serializable enum class LabType { EXPERIMENT, PROJECT }
 @Serializable enum class Attendance { UNMARKED, PRESENT, ABSENT, EXCUSED }
 @Serializable enum class WorkStatus { NOT_DONE, WRITTEN, SUBMITTED, RECEIVED, NOT_REQUIRED }
 @Serializable enum class AssessmentKind { QUIZ, MIDSEMESTER, FINAL }
@@ -48,7 +49,11 @@ data class Semester(@PrimaryKey val id: String = newId(), val title: String, val
 
 @Entity(tableName = "courses", indices = [Index("semesterId")]) @Serializable
 data class Course(@PrimaryKey val id: String = newId(), val semesterId: String, val name: String,
-    val code: String = "", val type: CourseType = CourseType.THEORY, val location: String = "")
+    val code: String = "", val type: CourseType = CourseType.THEORY, val location: String = "",
+    @ColumnInfo(defaultValue = "'EXPERIMENT'") val labType: LabType = LabType.EXPERIMENT)
+
+val Course.isProjectLab: Boolean get() = type == CourseType.LAB && labType == LabType.PROJECT
+val Course.isExperimentLab: Boolean get() = type == CourseType.LAB && labType == LabType.EXPERIMENT
 
 @Entity(tableName = "schedule_rules", indices = [Index("courseId")]) @Serializable
 data class ScheduleRule(@PrimaryKey val id: String = newId(), val courseId: String, val weekday: Int,
@@ -89,8 +94,9 @@ data class AssessmentTopic(val assessmentId: String, val topicId: String, val ch
 @Entity(tableName = "assignments", indices = [Index("courseId")]) @Serializable
 data class Assignment(@PrimaryKey val id: String = newId(), val courseId: String, val title: String, val dueAt: String, val completed: Boolean = false)
 
-@Entity(tableName = "projects") @Serializable
-data class Project(@PrimaryKey val id: String = newId(), val title: String, val dueDate: String, val active: Boolean = true)
+@Entity(tableName = "projects", indices = [Index("courseId")]) @Serializable
+data class Project(@PrimaryKey val id: String = newId(), val title: String, val dueDate: String, val active: Boolean = true,
+    @ColumnInfo(defaultValue = "NULL") val courseId: String? = null)
 
 @Entity(tableName = "milestones", indices = [Index("ownerId")]) @Serializable
 data class Milestone(@PrimaryKey val id: String = newId(), val ownerId: String, val project: Boolean,
@@ -102,7 +108,9 @@ data class Todo(@PrimaryKey val id: String = newId(), val milestoneId: String, v
 
 @Entity(tableName = "experiments", indices = [Index("occurrenceId")]) @Serializable
 data class Experiment(@PrimaryKey val id: String = newId(), val occurrenceId: String, val title: String,
-    val prework: WorkStatus = WorkStatus.NOT_DONE, val report: WorkStatus = WorkStatus.NOT_DONE)
+    val prework: WorkStatus = WorkStatus.NOT_DONE, val report: WorkStatus = WorkStatus.NOT_DONE,
+    @ColumnInfo(defaultValue = "NULL") val preworkDueAt: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val reportDueAt: String? = null)
 
 @Entity(tableName = "meal_templates", indices = [Index(value = ["weekday", "slot"], unique = true)]) @Serializable
 data class MealTemplate(@PrimaryKey val id: String = newId(), val weekday: Int, val slot: String,

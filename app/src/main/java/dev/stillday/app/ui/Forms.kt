@@ -41,11 +41,16 @@ object Forms {
 
     fun course(vm: PlannerViewModel, semesterId: String, old: Course? = null) = FormSpec(if (old == null) "Add course" else "Edit course", listOf(
         FormField("name", "Course name", old?.name.orEmpty()), FormField("code", "Course code", old?.code.orEmpty(), optional = true),
-        FormField("type", "Course type", (old?.type ?: CourseType.THEORY).name, CourseType.entries.toTypedArray().choices()),
+        FormField("type", "Course type", if (old?.type != CourseType.LAB) "THEORY" else if (old.isProjectLab) "LAB_PROJECT" else "LAB_EXPERIMENT",
+            listOf(Choice("THEORY", "Theory"), Choice("LAB_EXPERIMENT", "Experiment-based lab"), Choice("LAB_PROJECT", "Project-based lab"))),
         FormField("location", "Default location", old?.location.orEmpty(), optional = true)),
         if (old == null) "After saving, open the course to add its weekly or alternate-week class slots." else null) { v ->
-        val c = Course(old?.id ?: newId(), semesterId, v.required("name"), v["code"].orEmpty(), CourseType.valueOf(v.getValue("type")), v["location"].orEmpty())
-        vm.edit { it.copy(courses = it.courses.filterNot { row -> row.id == c.id } + c) }
+        val selection = v.required("type")
+        val c = Course(old?.id ?: newId(), semesterId, v.required("name"), v["code"].orEmpty(),
+            if (selection == "THEORY") CourseType.THEORY else CourseType.LAB, v["location"].orEmpty(),
+            if (selection == "LAB_PROJECT") LabType.PROJECT else LabType.EXPERIMENT)
+        LabCourses.validateCourseChange(vm.state.value.data, c) // Keep the editor open if linked work would become invalid.
+        vm.edit { LabCourses.updateCourse(it, c) }
     }
 
     fun rule(vm: PlannerViewModel, course: Course, old: ScheduleRule? = null): FormSpec {
@@ -128,11 +133,24 @@ object Forms {
         vm.edit { it.copy(assignments = it.assignments.filterNot { row -> row.id == a.id } + a) }
     }
 
-    fun project(vm: PlannerViewModel, old: Project? = null) = FormSpec(if (old == null) "Add project" else "Edit project", listOf(
-        FormField("title", "Project name", old?.title.orEmpty()), FormField("date", "Finish date", old?.dueDate ?: vm.repository.today().plusMonths(1).toString()),
-        FormField("active", "Show tasks in Today", (old?.active ?: true).toString(), listOf(Choice("true", "Active"), Choice("false", "Paused"))))) { v ->
-        val p = Project(old?.id ?: newId(), v.required("title"), v.dateValue("date"), v["active"].toBoolean())
-        vm.edit { it.copy(projects = it.projects.filterNot { row -> row.id == p.id } + p) }
+    fun project(vm: PlannerViewModel, old: Project? = null, courseId: String? = null): FormSpec {
+        val data = vm.state.value.data
+        val linked = old?.courseId ?: courseId
+        val labs = data.courses.filter { it.isProjectLab }
+        val semesterEnd = data.courses.find { it.id == linked }?.let { course -> data.semesters.find { it.id == course.semesterId }?.end }
+        val fields = mutableListOf(FormField("title", "Project name", old?.title.orEmpty()))
+        if (labs.isNotEmpty()) fields += FormField("courseId", "Project for", linked.orEmpty(),
+            listOf(Choice("", "Personal project")) + labs.map { course ->
+                val semester = data.semesters.find { it.id == course.semesterId }?.title.orEmpty()
+                Choice(course.id, "${course.name} · $semester")
+            }, optional = true)
+        fields += FormField("date", "Finish date", old?.dueDate ?: semesterEnd ?: vm.repository.today().plusMonths(1).toString())
+        fields += FormField("active", "Show tasks in Today", (old?.active ?: true).toString(), listOf(Choice("true", "Active"), Choice("false", "Paused")))
+        return FormSpec(if (old == null) "Add project" else "Edit project", fields,
+            if (linked != null) "A lab project uses the same milestones and TODOs as a personal project and appears in Projects." else null) { v ->
+            val p = Project(old?.id ?: newId(), v.required("title"), v.dateValue("date"), v["active"].toBoolean(), v["courseId"]?.takeIf { it.isNotBlank() })
+            vm.edit { it.copy(projects = it.projects.filterNot { row -> row.id == p.id } + p) }
+        }
     }
 
     fun milestone(vm: PlannerViewModel, ownerId: String, project: Boolean, due: String, old: Milestone? = null) = FormSpec(if (old == null) "Add milestone" else "Edit milestone", listOf(
@@ -153,8 +171,23 @@ object Forms {
     fun experiment(vm: PlannerViewModel, occurrenceId: String, old: Experiment? = null) = FormSpec("Lab experiment", listOf(
         FormField("title", "Experiment name", old?.title.orEmpty()),
         FormField("prework", "Prework", (old?.prework ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
-        FormField("report", "Lab report", (old?.report ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()))) { v ->
-        val e = Experiment(old?.id ?: newId(), occurrenceId, v.required("title"), WorkStatus.valueOf(v.getValue("prework")), WorkStatus.valueOf(v.getValue("report")))
+        FormField("preworkDate", "Prework submission date · optional", old?.preworkDueAt?.take(10).orEmpty(), optional = true),
+        FormField("preworkTime", "Prework submission time", old?.preworkDueAt?.let(::timeLabel) ?: "23:59", optional = true),
+        FormField("report", "Lab report", (old?.report ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
+        FormField("reportDate", "Report submission date · optional", old?.reportDueAt?.take(10).orEmpty(), optional = true),
+        FormField("reportTime", "Report submission time", old?.reportDueAt?.let(::timeLabel) ?: "23:59", optional = true)),
+        "Set each submission deadline independently. Leave a date blank to remove its deadline. Times use your university timezone and default to 23:59.") { v ->
+        val data = vm.state.value.data
+        val course = data.occurrences.find { it.id == occurrenceId }?.let { o -> data.courses.find { it.id == o.courseId } }
+        require(old != null || course?.isExperimentLab == true) { "Add experiments to an experiment-based lab. Project-based labs use projects, milestones and TODOs." }
+        fun deadline(prefix: String): String? {
+            if (v["${prefix}Date"].isNullOrBlank()) return null
+            val date = v.dateValue("${prefix}Date")
+            val time = v["${prefix}Time"]?.trim()?.takeIf { it.isNotEmpty() } ?: "23:59"
+            return "${date}T$time".dateTime().toString()
+        }
+        val e = Experiment(old?.id ?: newId(), occurrenceId, v.required("title"), WorkStatus.valueOf(v.getValue("prework")), WorkStatus.valueOf(v.getValue("report")),
+            deadline("prework"), deadline("report"))
         vm.edit { it.copy(experiments = it.experiments.filterNot { row -> row.id == e.id } + e) }
     }
 

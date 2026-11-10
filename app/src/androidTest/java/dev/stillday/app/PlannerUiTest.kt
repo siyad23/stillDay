@@ -91,7 +91,7 @@ class PlannerUiTest {
     }
 
     @Test fun calendarAttendanceAndReschedulingPersist() {
-        rule.onNodeWithText("Calendar").performClick()
+        rule.onNodeWithContentDescription("Open calendar").performClick()
         rule.onNodeWithText("10:00 · Engineering Mathematics").performScrollTo().performClick()
         rule.onNodeWithText("Present").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.occurrences.any { it.attendance == Attendance.PRESENT } }
@@ -121,7 +121,6 @@ class PlannerUiTest {
     }
 
     @Test fun projectSwitchRemovesTasksFromToday() {
-        rule.onNodeWithText("Life").performClick()
         rule.onNodeWithText("Projects").performClick()
         rule.onNodeWithText("Build a personal website").performClick()
         rule.onNode(isToggleable() and hasAnySibling(hasText("  Active · tasks appear in Today"))).performClick()

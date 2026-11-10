@@ -14,6 +14,48 @@ import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
 class PersistenceTest {
+    @Test fun experimentSubmissionDeadlinesSurviveBackupAndDatabaseRoundTrips() = runBlocking<Unit> {
+        val app = ApplicationProvider.getApplicationContext<StilldayApplication>()
+        val repository = app.repository
+        repository.initialize()
+        val demo = DemoData.create(repository.today())
+        val occurrence = demo.occurrences.first { it.courseId == "demo-lab" }
+        val experiment = Experiment("deadline-exp", occurrence.id, "Experiment", WorkStatus.WRITTEN, WorkStatus.NOT_DONE,
+            "2026-11-10T08:00", "2026-11-17T17:30")
+        repository.change { demo.copy(experiments = listOf(experiment)) }
+        val backup = repository.export()
+        repository.change { Snapshot() }; repository.import(backup)
+        val database = PlannerDatabase.create(app)
+        try { assertEquals(experiment, database.planner().experiments().single()) }
+        finally { database.close() }
+    }
+
+    @Test fun labProjectLinksAndWorkSurviveDatabaseAndBackupRoundTrips() = runBlocking<Unit> {
+        val app = ApplicationProvider.getApplicationContext<StilldayApplication>()
+        val repository = app.repository
+        repository.initialize()
+        val demo = DemoData.create(repository.today())
+        val lab = demo.courses.single { it.id == "demo-lab" }.copy(labType = LabType.PROJECT)
+        val project = Project("lab-project", "Lab prototype", repository.today().plusMonths(1).toString(), courseId = lab.id)
+        val milestone = Milestone("lab-milestone", project.id, true, "Prototype", project.dueDate)
+        val todo = Todo("lab-todo", milestone.id, "Build", completed = true)
+        val data = demo.copy(courses = demo.courses.map { if (it.id == lab.id) lab else it }, projects = demo.projects + project,
+            milestones = demo.milestones + milestone, todos = demo.todos + todo)
+        repository.change { data }
+        val backup = repository.export()
+        repository.change { Snapshot() }
+        repository.import(backup)
+        val reopened = PlannerDatabase.create(app)
+        try {
+            val loaded = reopened.planner().load()
+            assertTrue(loaded.courses.single { it.id == lab.id }.isProjectLab)
+            assertEquals(lab.id, loaded.projects.single { it.id == project.id }.courseId)
+            assertNull(loaded.projects.single { it.id == "demo-project" }.courseId)
+            assertEquals(milestone, loaded.milestones.single { it.id == milestone.id })
+            assertEquals(todo, loaded.todos.single { it.id == todo.id })
+        } finally { reopened.close() }
+    }
+
     @Test fun roomRoundTripPreservesAllTablesAndEnums() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<StilldayApplication>()
         val database = Room.inMemoryDatabaseBuilder(context, PlannerDatabase::class.java).build()

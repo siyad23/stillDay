@@ -32,6 +32,16 @@ object Reminders {
     suspend fun refresh(context: Context, repository: PlannerRepository) = withContext(Dispatchers.IO) {
         val state = repository.state.value
         val preferences = state.preferences
+        val pendingSubmissions = LabSubmissions.pending(state.data)
+        val notifications = context.getSystemService(NotificationManager::class.java)
+        notifications.activeNotifications.forEach { notification ->
+            val id = notification.notification.extras.getString("lab_submission_id")
+            if (id != null) {
+                val item = pendingSubmissions.find { it.id == id }
+                if (!preferences.notifications || item?.dueAt == null || item.dueAt.toString() != notification.notification.extras.getString("lab_due_at"))
+                    notifications.cancel(notification.tag, notification.id)
+            }
+        }
         val alarm = context.getSystemService(AlarmManager::class.java)
         val registry = context.getSharedPreferences("reminder_registry", Context.MODE_PRIVATE)
         registry.getStringSet("ids", emptySet()).orEmpty().forEach { id ->
@@ -47,10 +57,11 @@ object Reminders {
         val until = now.plusDays(14)
         val zone = ZoneId.of(preferences.timezone)
         val ids = mutableSetOf<String>()
-        fun schedule(key: String, at: LocalDateTime, title: String, body: String, briefing: Boolean = false) {
+        fun schedule(key: String, at: LocalDateTime, title: String, body: String, briefing: Boolean = false, submission: LabSubmission? = null) {
             if (!at.isAfter(now) || at.isAfter(until)) return
             val id = key.hashCode()
             val intent = Intent(context, ReminderReceiver::class.java).putExtra("id", id).putExtra("title", title).putExtra("body", body).putExtra("briefing", briefing)
+            submission?.let { intent.putExtra("lab_submission_id", it.id).putExtra("lab_due_at", it.dueAt.toString()).putExtra("widget_route", it.route) }
             val pending = PendingIntent.getBroadcast(context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             alarm.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.atZone(zone).toInstant().toEpochMilli(), pending)
             ids += id.toString()
@@ -67,9 +78,15 @@ object Reminders {
         s.assessments.filter { it.at != null }.forEach { a -> schedule("assessment:${a.id}", a.at!!.dateTime().minusMinutes(preferences.eventLeadMinutes.toLong()),
             a.title, "${a.at!!.substringAfter('T').take(5)} · ${a.location}") }
         s.assignments.filterNot { it.completed }.forEach { a -> schedule("assignment:${a.id}", a.dueAt.dateTime().minusHours(preferences.deadlineLeadHours.toLong()),
-            "Assignment due: ${a.title}", "Submit by ${a.dueAt.take(10)} ${a.dueAt.substringAfter('T').take(5)}") }
+            "Assignment due: ${a.title}", "Submit by ${DisplayDates.label(a.dueAt)} ${a.dueAt.substringAfter('T').take(5)}") }
         s.projects.filter { it.active }.forEach { p -> schedule("project:${p.id}", p.dueDate.date().atTime(23, 59).minusHours(preferences.deadlineLeadHours.toLong()),
-            "Project deadline: ${p.title}", "Finish by ${p.dueDate}") }
+            "Project deadline: ${p.title}", "Finish by ${DisplayDates.label(p.dueDate)}") }
+        pendingSubmissions.filter { it.dueAt != null }.forEach { item ->
+            val due = item.dueAt!!
+            val body = "Submit by ${DisplayDates.format(due.toLocalDate())} · ${due.toLocalTime()}"
+            if (preferences.deadlineLeadHours > 0) schedule("lab:${item.id}:lead", due.minusHours(preferences.deadlineLeadHours.toLong()), item.title, body, submission = item)
+            schedule("lab:${item.id}:due", due, item.title, body, submission = item)
+        }
         registry.edit { putStringSet("ids", ids) }
         WorkManager.getInstance(context).enqueueUniquePeriodicWork("reminder_refresh", ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<ReminderWorker>(12, TimeUnit.HOURS).build())
@@ -78,7 +95,13 @@ object Reminders {
     suspend fun deliver(context: Context, intent: Intent, repository: PlannerRepository) {
         if (!repository.state.value.preferences.notifications) return
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
-        val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        intent.getStringExtra("lab_submission_id")?.let { id ->
+            val current = LabSubmissions.pending(repository.state.value.data).find { it.id == id }
+            if (current?.dueAt == null || current.dueAt.toString() != intent.getStringExtra("lab_due_at")) return
+        }
+        val openIntent = Intent(context, MainActivity::class.java)
+        intent.getStringExtra("widget_route")?.let { openIntent.putExtra("widget_route", it) }
+        val open = PendingIntent.getActivity(context, intent.getIntExtra("id", 1), openIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val briefing = intent.getBooleanExtra("briefing", false)
         val body = if (briefing) {
             val state = repository.state.value
@@ -87,7 +110,11 @@ object Reminders {
         } else intent.getStringExtra("body").orEmpty()
         val notification = NotificationCompat.Builder(context, CHANNEL).setSmallIcon(dev.stillday.app.R.drawable.ic_notification)
             .setContentTitle(intent.getStringExtra("title") ?: "Your daily plan").setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true).build()
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body)).setContentIntent(open).setAutoCancel(true)
+            .addExtras(android.os.Bundle().apply {
+                putString("lab_submission_id", intent.getStringExtra("lab_submission_id"))
+                putString("lab_due_at", intent.getStringExtra("lab_due_at"))
+            }).build()
         NotificationManagerCompat.from(context).notify(intent.getIntExtra("id", 1), notification)
     }
 }
@@ -104,7 +131,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)) return
+        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED)) return
+        AgendaWidgets.refresh(context)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try { val repository = (context.applicationContext as StilldayApplication).repository; repository.initialize(); Reminders.refresh(context, repository) }

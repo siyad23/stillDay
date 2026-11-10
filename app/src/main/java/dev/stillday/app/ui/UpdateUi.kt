@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.stillday.app.BuildConfig
 import dev.stillday.app.updates.*
 import dev.stillday.domain.UpdatePolicy
+import dev.stillday.domain.DisplayDates
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -43,7 +44,10 @@ private fun sizeLabel(bytes: Long): String = String.format(Locale.ROOT, "%.1f MB
         Text("Checks GitHub daily when connected. Downloads start when you choose Update now. Your university and personal records are never sent.", style = MaterialTheme.typography.bodyMedium)
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         state.update?.let { update -> Text("Available: ${update.manifest.versionName} · build ${update.manifest.versionCode}", color = MaterialTheme.colorScheme.primary) }
-        if (state.lastChecked > 0) Text("Last check: ${Instant.ofEpochMilli(state.lastChecked).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM, HH:mm"))}", style = MaterialTheme.typography.labelMedium)
+        if (state.lastChecked > 0) {
+            val checked = Instant.ofEpochMilli(state.lastChecked).atZone(ZoneId.systemDefault())
+            Text("Last check: ${DisplayDates.format(checked.toLocalDate())} · ${checked.format(DateTimeFormatter.ofPattern("HH:mm"))}", style = MaterialTheme.typography.labelMedium)
+        }
         if (state.phase == UpdatePhase.CHECKING) LinearProgressIndicator(Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { updates.checkNow() }, enabled = !busy) { Text("Check for updates") }

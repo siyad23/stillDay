@@ -38,10 +38,15 @@ object Validation {
         s.assessments.forEach { a -> has(s.courses.any { it.id == a.courseId }); if (a.periodId != null) has(s.periods.any { it.id == a.periodId }); a.at?.dateTime() }
         s.coverage.forEach { c -> has(s.assessments.any { it.id == c.assessmentId } && s.topics.any { it.id == c.topicId }); val a = s.assessments.first { it.id == c.assessmentId }; val t = s.topics.first { it.id == c.topicId }; has(s.chapters.any { it.id == t.chapterId && it.courseId == a.courseId }) }
         s.assignments.forEach { a -> has(s.courses.any { it.id == a.courseId }); a.dueAt.dateTime() }
-        s.projects.forEach { it.dueDate.date() }
+        s.projects.forEach { project ->
+            project.dueDate.date()
+            if (project.courseId != null) require(s.courses.any { it.id == project.courseId && it.isProjectLab }) {
+                "A lab project must link to an existing project-based lab course."
+            }
+        }
         s.milestones.forEach { m -> has(if (m.project) s.projects.any { it.id == m.ownerId } else s.assignments.any { it.id == m.ownerId }); m.dueDate.date() }
         s.todos.forEach { t -> has(s.milestones.any { it.id == t.milestoneId }); t.plannedDate?.date() }
-        s.experiments.forEach { e -> has(s.occurrences.any { it.id == e.occurrenceId }) }
+        s.experiments.forEach { e -> has(s.occurrences.any { it.id == e.occurrenceId }); e.preworkDueAt?.dateTime(); e.reportDueAt?.dateTime() }
         s.meals.forEach { require(it.weekday in 1..7); LocalTime.parse(it.time) }
         s.mealOverrides.forEach { it.date.date() }
         LifeResolver.validateTravel(s.travel)

@@ -41,8 +41,12 @@ object Recurrence {
         return result.distinctBy { it.id }.sortedBy { it.start }
     }
 
-    fun routineOccurrences(routine: Routine, existing: List<RoutineOccurrence> = emptyList()): List<RoutineOccurrence> {
+    fun routineOccurrences(routine: Routine, existing: List<RoutineOccurrence> = emptyList(),
+        from: LocalDate = routine.start.date()): List<RoutineOccurrence> {
         require(routine.interval in 1..365)
+        require(routine.durationMinutes in 1..1440)
+        LocalTime.parse(routine.time)
+        routine.endTime?.let { require(ActivityTiming.duration(routine.time, it) == routine.durationMinutes) }
         val start = routine.start.date()
         val end = routine.end.date()
         require(!end.isBefore(start) && ChronoUnit.DAYS.between(start, end) <= 3660)
@@ -58,11 +62,13 @@ object Recurrence {
             }
             if (day.isAfter(end)) break
             val id = "${routine.id}:$day"
-            result += old[id] ?: RoutineOccurrence(id, routine.id, day.toString(), routine.time)
+            val previous = old[id]
+            result += if (previous != null && (day.isBefore(from) || previous.completed || previous.skipped || previous.overridden)) previous
+                else RoutineOccurrence(id, routine.id, day.toString(), routine.time, durationMinutes = routine.durationMinutes)
             step++
         }
         val ids = result.map { it.id }.toSet()
-        return (result + existing.filter { it.id !in ids && (it.completed || it.skipped || it.overridden) }).distinctBy { it.id }
+        return (result + existing.filter { it.id !in ids && (it.date.date().isBefore(from) || it.completed || it.skipped || it.overridden) }).distinctBy { it.id }
     }
 
     fun focus(date: LocalDate, periods: List<ExamPeriod>, preferences: Preferences): FocusState {
@@ -117,13 +123,13 @@ object LifeResolver {
         })
     }
 
-    fun meals(date: LocalDate, data: Snapshot): List<ResolvedMeal> {
-        val slots = listOf("Breakfast" to "08:00", "Lunch" to "13:00", "Dinner" to "20:00")
+    fun meals(date: LocalDate, data: Snapshot, preferences: Preferences = Preferences()): List<ResolvedMeal> {
+        val slots = listOf("Breakfast" to preferences.breakfastTime, "Lunch" to preferences.lunchTime, "Dinner" to preferences.dinnerTime)
         return slots.map { (slot, defaultTime) ->
             val template = data.meals.find { it.weekday == date.dayOfWeek.value && it.slot == slot }
-            val time = template?.time ?: defaultTime
-            val location = resolveLocation(date.atTime(LocalTime.parse(time)), data)
             val override = data.mealOverrides.find { it.date == date.toString() && it.slot == slot }
+            val time = override?.time ?: template?.time ?: defaultTime
+            val location = resolveLocation(date.atTime(LocalTime.parse(time)), data)
             val description = when {
                 override?.action == MealAction.SKIP -> "Not eating"
                 override?.action == MealAction.OUTSIDE -> "Eating outside"
@@ -132,7 +138,7 @@ object LifeResolver {
                 location.place == Place.HOME -> "Home meal · flexible"
                 else -> "${location.name} · meal unplanned"
             }
-            ResolvedMeal(slot, time, description, location.inferred && override == null)
+            ResolvedMeal(slot, time, description, location.inferred && override == null, preferences.mealMinutes, override?.action == MealAction.SKIP)
         }
     }
 

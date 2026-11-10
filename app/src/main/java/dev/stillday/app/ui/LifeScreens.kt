@@ -60,7 +60,11 @@ import java.time.DayOfWeek
             }
             s.milestones.filter { it.dueDate == day.toString() }.forEach { m -> events += CalendarItem("23:59", m.title, "Milestone finish date", "${if (m.project) "project" else "assignment"}:${m.ownerId}") }
             s.routineOccurrences.filter { it.date == day.toString() && !it.skipped }.forEach { r -> events += CalendarItem(r.time,
-                s.routines.find { it.id == r.routineId }?.title ?: "Routine", if (r.completed) "Completed" else "Routine") }
+                s.routines.find { it.id == r.routineId }?.title ?: "Routine", "Until ${timeLabel(ActivityTiming.end(r.date, r.time, r.durationMinutes).toString())} · ${if (r.completed) "Completed" else "Routine"}") }
+            DayPlanner.build(day, s, state.preferences).blocks.filter { it.kind !in listOf(DayBlockKind.CLASS, DayBlockKind.LAB, DayBlockKind.ASSESSMENT,
+                DayBlockKind.ROUTINE, DayBlockKind.TRAVEL, DayBlockKind.REST) }.forEach { block ->
+                events += CalendarItem(timeLabel(block.start.toString()), block.title, "${blockTime(block)} · ${block.detail}", block.route?.takeUnless { it == "Today" })
+            }
             if (Recurrence.focus(day, s.periods, state.preferences).active) Text("Exam focus · assignment and project suggestions paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             if (events.isEmpty()) Text("No scheduled activities", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             events.sortedBy { it.time }.forEach { event ->
@@ -68,7 +72,7 @@ import java.time.DayOfWeek
             }
             if (!week) {
                 SectionTitle("Meals", "Override") { open(Forms.mealOverride(vm, day.toString())) }
-                LifeResolver.meals(day, s).forEach { meal -> ItemRow("${meal.time} · ${meal.slot}", meal.description, onClick = { open(Forms.mealOverride(vm, day.toString(), meal.slot)) }) }
+                LifeResolver.meals(day, s, state.preferences).forEach { meal -> ItemRow("${meal.time} · ${meal.slot}", "${meal.description} · ${meal.durationMinutes}m", onClick = { open(Forms.mealOverride(vm, day.toString(), meal.slot)) }) }
             }
         }
     }
@@ -77,7 +81,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
 
 @Composable fun LifeScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     var savedTab by rememberSaveable { mutableStateOf(0) }
-    val tab = savedTab.coerceIn(0, 2)
+    val tab = savedTab.coerceIn(0, 3)
     var weekday by rememberSaveable { mutableStateOf(vm.repository.today().dayOfWeek.value) }
     var expandedRoutine by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteTravel by remember { mutableStateOf<TravelLeg?>(null) }
@@ -85,10 +89,12 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
     Page {
         Text("The everyday, handled.", style = MaterialTheme.typography.headlineLarge)
         ScrollableTabRow(tab, edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.background, divider = {}) {
-            listOf("Meals", "Travel", "Routines").forEachIndexed { index, title -> Tab(tab == index, { savedTab = index }, text = { Text(title) }) }
+            listOf("Meals", "Travel", "Routines", "Day plan").forEachIndexed { index, title -> Tab(tab == index, { savedTab = index }, text = { Text(title) }) }
         }
         when (tab) {
             0 -> {
+                SectionTitle("Meal timing", "Edit times") { open(Forms.mealTiming(vm)) }
+                Text("${state.preferences.mealMinutes} minutes per meal · weekly times below override your defaults.", style = MaterialTheme.typography.bodyMedium)
                 SectionTitle("Weekly hall menu")
                 ChoiceField("Day", weekday.toString(), weekdayChoices) { weekday = it.toInt() }
                 listOf("Breakfast", "Lunch", "Dinner").forEach { slot ->
@@ -128,19 +134,20 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
             2 -> {
                 SectionTitle("Recurring & one-off", "Add routine") { open(Forms.routine(vm)) }
                 s.routines.forEach { routine -> QuietCard {
-                    ItemRow(routine.title, "${routine.frequency.name.pretty()} · ${routine.time}\n${dateLabel(routine.start)} – ${dateLabel(routine.end)}", onClick = { expandedRoutine = if (expandedRoutine == routine.id) null else routine.id })
+                    ItemRow(routine.title, "${routine.frequency.name.pretty()} · ${routine.time}–${timeLabel(ActivityTiming.end(routine.start, routine.time, routine.durationMinutes).toString())} · ${routine.durationMinutes}m\n${dateLabel(routine.start)} – ${dateLabel(routine.end)}", onClick = { expandedRoutine = if (expandedRoutine == routine.id) null else routine.id })
                     TextButton(onClick = { open(Forms.routine(vm, routine)) }) { Text("Edit routine") }
                     if (expandedRoutine == routine.id) {
                         s.routineOccurrences.filter { it.routineId == routine.id && it.date >= vm.repository.today().minusWeeks(1).toString() }.sortedBy { it.date }.take(30).forEach { row ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(row.completed, { checked -> vm.edit("Routine updated") { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(completed = checked, skipped = false) else r }) } })
                                 Column(Modifier.weight(1f)) {
-                                    Text("${dateLabel(row.date)} · ${row.time}", style = MaterialTheme.typography.bodyMedium)
+                                    Text("${dateLabel(row.date)} · ${row.time}–${timeLabel(ActivityTiming.end(row.date, row.time, row.durationMinutes).toString())}", style = MaterialTheme.typography.bodyMedium)
                                     if (row.skipped) Text("Skipped", style = MaterialTheme.typography.labelMedium)
                                 }
-                                TextButton(onClick = { open(FormSpec("Move this occurrence", listOf(FormField("date", "Date", row.date), FormField("time", "Time", row.time))) { v ->
+                                TextButton(onClick = { open(FormSpec("Move this occurrence", listOf(FormField("date", "Date", row.date)) + Forms.timingFields(row.time, row.durationMinutes)) { v ->
                                     val date = v.dateValue("date"); val time = v.timeValue("time")
-                                    vm.edit { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(date = date, time = time, overridden = true) else r }) }
+                                    val minutes = Forms.activityMinutes(v)
+                                    vm.edit { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(date = date, time = time, durationMinutes = minutes, overridden = true) else r }) }
                                 }) }) { Text("Move") }
                             }
                         }
@@ -148,6 +155,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
                 } }
                 if (s.routines.isEmpty()) EmptyState("Make repeat decisions once", "Add laundry, cleaning, bedsheets, or a one-off activity.")
             }
+            3 -> DayPlanningControls(vm, state, open)
         }
     }
     deleteTravel?.let { trip -> AlertDialog(onDismissRequest = { deleteTravel = null }, title = { Text("Remove this trip?") },

@@ -8,7 +8,7 @@ A native, offline Android life planner built around a bounded daily study plan. 
   <img src="docs/screenshots/manual-semester.png" alt="Creating only Semester 7 with manual start and expected end dates" width="240" />
 </p>
 
-All preview data is synthetic. [GitHub upload instructions](docs/GITHUB_SETUP.md) · [In-app updates and releases](docs/UPDATES.md) · [Verification report](docs/TEST_REPORT.md)
+All preview data is synthetic. [GitHub upload instructions](docs/GITHUB_SETUP.md) · [In-app updates and releases](docs/UPDATES.md) · [Day planning and alarms](docs/DAY_PLANNING.md) · [Verification report](docs/TEST_REPORT.md)
 
 ## Run it
 
@@ -58,7 +58,9 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Lab experiments with independent prework/report statuses and submission deadlines, including overdue tracking, Calendar/widget entries and reminders; pending lab work appears on Today.
 - [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
 - Weekly hall meals, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
-- One-off and bounded recurring routines with completion, skipping, and occurrence rescheduling.
+- One-off and bounded recurring routines with start/end times or durations, completion, skipping, and individual rescheduling.
+- Dynamic study/project time around routines, travel, classes, meals, five manually timed prayers and sleep. Adjustable 50/50 split, ten-minute class buffers, and relaxation gaps under thirty minutes.
+- Fajr-based wake-up and bedtime, plus an optional automatic wake alarm with maximum alarm volume, snooze/dismiss controls and a separate Clock backup shortcut.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
 - Home-screen Add Quiz widget, daily briefings, event/deadline reminders, and validated JSON export/import.
 - A translucent, theme-matched [home-screen agenda widget](docs/WIDGETS.md), with grouped dates, scrolling/resizing, event links, and quick quiz capture.
@@ -66,7 +68,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 
 ## Study policy
 
-Normal days default to 120 minutes, exam focus to 360 minutes. New learning reserves 30% normally and 20% during focus; remaining time goes to reviews. Empty categories share their unused allocation. Difficulty 4–5 and the latest Again/Hard rating classify a topic as difficult, capped at 40% of the total daily budget by default. Unused time is not silently filled with more difficult work.
+Automatic day planning derives the study budget from remaining free time, shared 50/50 with unfinished active projects by default. Focus reserves all work time for study. When automatic planning is off, fixed budgets default to 120 minutes normally and 360 during exam focus. New learning reserves 30% normally and 20% during focus; remaining time goes to reviews. Empty categories share their unused allocation. Difficulty 4–5 and the latest Again/Hard rating classify a topic as difficult, capped at 40% of the study budget by default. Unused time is not silently filled with more difficult work.
 
 The repetition engine uses an SM-2 adaptation with Again/Hard/Good/Easy feedback. Difficulty seeds the initial ease factor; subsequent understanding ratings adjust it. Each topic maintains independent repetition state. Failed recall restarts at one day, successful reviews expand the interval, and exam preparation adds a separate review opportunity before an assessment. A topic is automatically offered at most once daily. Long sessions are broken into at most 20-minute blocks and retain partial progress. Hard feedback also counts completed work toward the difficult-work allowance.
 
@@ -86,13 +88,13 @@ University schedules use the configured university timezone even if the device t
 
 Displayed dates use `10 Aug, 2026` consistently, including editable fields, reminders and the agenda widget. Date pickers and typed dates both work; database and backup dates retain their ISO format for compatibility and sorting.
 
-Reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay delivery. Notification permission is enabled from Settings. No exact-alarm special access or location access is required. Internet access is used for GitHub release checks and APK downloads; university and personal records stay on the device. Android's install-from-this-source permission is requested only when installing an update.
+Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay reminder delivery. The optional Fajr wake-up alarm uses AlarmManager alarm-clock scheduling and requires notification permission and Alarms & reminders access on recent Android versions. Its lock-screen UI can require full-screen alarm access. Alarm volume changes affect the phone's shared alarm stream; Android DND and device policies still apply. Location is inferred from travel, without location permission. Internet access is used for GitHub release checks and APK downloads; university and personal records stay on the device. Android's install-from-this-source permission is requested only when installing an update.
 
 ## Architecture and tests
 
 - `domain`: serializable entities, recurrence, location/meal resolution, validation, focus calculation, and deterministic study planning. JVM tests include a 150-day, 180-topic simulation with mixed difficulty and missed weeks.
 - `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, Glance widget, Android reminders, and instrumented UI/persistence tests.
-- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
+- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
 
 ```powershell
 .\scripts\Build.ps1

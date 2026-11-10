@@ -29,7 +29,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false, initialRoute: String? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
-    val destination = initialRoute?.takeIf { it in listOf("Today", "Projects", "Calendar", "University", "Life", "Settings") ||
+    val destination = initialRoute?.takeIf { it in listOf("Today", "Projects", "Calendar", "University", "Life", "Planning", "Settings") ||
         it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") }
     var navigation by rememberSaveable(stateSaver = Saver<PlannerNavigation, String>(
         save = { Json.encodeToString(it) }, restore = { runCatching { Json.decodeFromString<PlannerNavigation>(it) }.getOrNull() })) {
@@ -92,6 +92,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                             route == "Calendar" -> CalendarScreen(vm, state, open, navigate)
                             route == "University" -> UniversityScreen(vm, state, open, navigate)
                             route == "Life" -> LifeScreen(vm, state, open, navigate)
+                            route == "Planning" -> Page { DayPlanningControls(vm, state, open) }
                             route == "Projects" -> ProjectsScreen(vm, state, open, navigate)
                             route == "Settings" -> SettingsScreen(vm, state, open, onEnableNotifications = {
                                 if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)

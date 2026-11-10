@@ -82,7 +82,10 @@ fun minutesLabel(minutes: Int): String = if (minutes >= 60) "${minutes / 60}h${i
 
 data class Choice(val value: String, val label: String = value)
 data class FormField(val key: String, val label: String, val initial: String = "", val choices: List<Choice> = emptyList(),
-    val multiline: Boolean = false, val optional: Boolean = false, val helper: String? = null)
+    val multiline: Boolean = false, val optional: Boolean = false, val helper: String? = null,
+    val condition: Pair<String, String>? = null) {
+    fun visible(values: Map<String, String>): Boolean = condition?.let { values[it.first] == it.second } ?: true
+}
 data class FormSpec(val title: String, val fields: List<FormField>, val description: String? = null,
     val preview: ((Map<String, String>) -> String)? = null,
     val save: (Map<String, String>) -> Unit)
@@ -92,12 +95,12 @@ data class FormSpec(val title: String, val fields: List<FormField>, val descript
     var error by remember { mutableStateOf<String?>(null) }
     EditorDialog(spec.title, onClose, onSave = {
         try {
-            spec.fields.filter { !it.optional }.forEach { require(!values[it.key].isNullOrBlank()) { "${it.label} is required." } }
+            spec.fields.filter { !it.optional && it.visible(values) }.forEach { require(!values[it.key].isNullOrBlank()) { "${it.label} is required." } }
             spec.save(values.toMap()); onClose()
         } catch (e: Exception) { error = e.message ?: "Check the form values." }
     }) {
         spec.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        spec.fields.forEach { field ->
+        spec.fields.filter { it.visible(values) }.forEach { field ->
             if (field.choices.isNotEmpty()) ChoiceField(field.label, values[field.key].orEmpty(), field.choices) { values[field.key] = it }
             else {
                 val key = field.key.lowercase()

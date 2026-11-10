@@ -17,6 +17,59 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
+    @Test fun versionFourUpgradePreservesRoutinesOverridesAndLabDeadlines() = runBlocking<Unit> {
+        val context = ApplicationProvider.getApplicationContext<StilldayApplication>()
+        val name = "day-plan-migration-" + newId() + ".db"
+        val schema = JSONObject(InstrumentationRegistry.getInstrumentation().context.assets.open("dev.stillday.app.data.PlannerDatabase/4.json")
+            .bufferedReader().use { it.readText() }).getJSONObject("database")
+        val helper = FrameworkSQLiteOpenHelperFactory().create(SupportSQLiteOpenHelper.Configuration.builder(context).name(name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(4) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    val entities = schema.getJSONArray("entities")
+                    for (i in 0 until entities.length()) {
+                        val entity = entities.getJSONObject(i)
+                        val table = entity.getString("tableName")
+                        db.execSQL(entity.getString("createSql").replace("$" + "{TABLE_NAME}", table))
+                        val indices = entity.optJSONArray("indices") ?: org.json.JSONArray()
+                        for (j in 0 until indices.length()) db.execSQL(indices.getJSONObject(j).getString("createSql").replace("$" + "{TABLE_NAME}", table))
+                    }
+                    val setup = schema.getJSONArray("setupQueries")
+                    for (i in 0 until setup.length()) db.execSQL(setup.getString(i))
+                }
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = error("Unexpected upgrade")
+            }).build())
+        try {
+            val old = helper.writableDatabase
+            old.execSQL("INSERT INTO semesters VALUES ('s','Semester 7','2026-10-01','2027-03-01')")
+            old.execSQL("INSERT INTO courses VALUES ('c','s','Lab','LAB','LAB','204','EXPERIMENT')")
+            old.execSQL("INSERT INTO schedule_rules VALUES ('r','c',2,'09:00',120,1,'2026-10-01')")
+            old.execSQL("INSERT INTO occurrences VALUES ('o','c','r','2026-11-10','2026-11-10T09:00','2026-11-10T11:00','204',0,0,'PRESENT')")
+            old.execSQL("INSERT INTO experiments VALUES ('e','o','Experiment','WRITTEN','SUBMITTED','2026-11-10T08:00','2026-11-15T17:30')")
+            old.execSQL("INSERT INTO routines VALUES ('routine','Laundry','2026-11-10','2026-12-01','18:00','WEEKLY',1)")
+            old.execSQL("INSERT INTO routine_occurrences VALUES ('ro','routine','2026-11-11','19:00',1,0,1)")
+            old.execSQL("INSERT INTO meal_overrides VALUES ('meal','2026-11-10','Lunch','OUTSIDE','')")
+            old.execSQL("INSERT INTO assessments VALUES ('quiz','c','Quiz','QUIZ','2026-11-12T10:00','204',NULL)")
+            helper.close()
+            val db = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_4_5).build()
+            try {
+                val s = db.planner().load()
+                assertEquals(30, s.routines.single().durationMinutes); assertNull(s.routines.single().endTime)
+                assertTrue(s.routineOccurrences.single().completed && s.routineOccurrences.single().overridden)
+                assertEquals("19:00", s.routineOccurrences.single().time)
+                assertEquals(30, s.routineOccurrences.single().durationMinutes)
+                assertNull(s.mealOverrides.single().time)
+                assertEquals(60, s.assessments.single().durationMinutes)
+                assertEquals("2026-11-15T17:30", s.experiments.single().reportDueAt)
+                val edited = s.copy(routines = listOf(s.routines.single().copy(durationMinutes = 90, endTime = "19:30")),
+                    routineOccurrences = listOf(s.routineOccurrences.single().copy(durationMinutes = 45)),
+                    mealOverrides = listOf(s.mealOverrides.single().copy(time = "14:00")))
+                db.planner().replace(edited)
+                assertEquals(edited.routines, db.planner().load().routines)
+                assertEquals("14:00", db.planner().load().mealOverrides.single().time)
+                Validation.snapshot(db.planner().load())
+            } finally { db.close() }
+        } finally { helper.close(); context.deleteDatabase(name) }
+    }
     @Test fun versionOneUpgradePreservesSemestersTopicsAndReviewHistory() = runBlocking {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = ApplicationProvider.getApplicationContext<StilldayApplication>()
@@ -46,7 +99,7 @@ class MigrationTest {
             old.execSQL("INSERT INTO topics VALUES ('t','ch','Existing topic',0,4,20,10,1,2.1,3,7,'2026-11-10','GOOD','2026-11-03',0,0)")
             old.execSQL("INSERT INTO review_events VALUES ('r','t','2026-11-03','GOOD',10,'REVIEW',1,1)")
             helper.close()
-            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_1_2, PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4).build()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_1_2, PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4, PlannerDatabase.MIGRATION_4_5).build()
             try {
                 val data = upgraded.planner().load()
                 assertEquals("Semester 7", data.semesters.single().title)
@@ -94,7 +147,7 @@ class MigrationTest {
             old.execSQL("INSERT INTO milestones VALUES ('m','p',1,'Existing milestone','2026-12-01',0)")
             old.execSQL("INSERT INTO todos VALUES ('t','m','Existing TODO',NULL,1,0)")
             helper.close()
-            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4).build()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_2_3, PlannerDatabase.MIGRATION_3_4, PlannerDatabase.MIGRATION_4_5).build()
             try {
                 val data = upgraded.planner().load()
                 assertTrue(data.courses.single().isExperimentLab)
@@ -138,7 +191,7 @@ class MigrationTest {
             helper.writableDatabase.execSQL("INSERT INTO occurrences VALUES ('old-occurrence','lab','r','2026-11-10','2026-11-10T09:00','2026-11-10T11:00','Lab 204',0,0,'PRESENT')")
             helper.writableDatabase.execSQL("INSERT INTO experiments VALUES ('e','old-occurrence','Existing experiment','WRITTEN','RECEIVED')")
             helper.close()
-            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_3_4).build()
+            val upgraded = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_3_4, PlannerDatabase.MIGRATION_4_5).build()
             try {
                 val old = upgraded.planner().experiments().single()
                 assertEquals(WorkStatus.WRITTEN, old.prework)

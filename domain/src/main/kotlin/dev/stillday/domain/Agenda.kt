@@ -3,7 +3,7 @@ package dev.stillday.domain
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-enum class AgendaKind { CLASS, LAB, ASSESSMENT, DEADLINE, ROUTINE, TRAVEL }
+enum class AgendaKind { CLASS, LAB, ASSESSMENT, DEADLINE, ROUTINE, TRAVEL, STUDY, PROJECT, MEAL, PRAYER, SLEEP }
 data class AgendaEntry(val id: String, val date: LocalDate, val title: String, val at: LocalDateTime?,
     val end: LocalDateTime? = null, val detail: String = "", val route: String = "Calendar", val kind: AgendaKind)
 data class AgendaDay(val date: LocalDate, val entries: List<AgendaEntry>, val pendingTasks: Int = 0, val focus: Boolean = false)
@@ -45,19 +45,34 @@ object Agenda {
         }
         data.routineOccurrences.filter { !it.completed && !it.skipped }.forEach { r ->
             add(AgendaEntry("routine:${r.id}", r.date.date(), data.routines.find { it.id == r.routineId }?.title ?: "Routine",
-                "${r.date}T${r.time}".dateTime(), detail = "Routine", route = "Life", kind = AgendaKind.ROUTINE))
+                "${r.date}T${r.time}".dateTime(), ActivityTiming.end(r.date, r.time, r.durationMinutes), detail = "Routine", route = "Life", kind = AgendaKind.ROUTINE))
         }
         data.travel.filter { it.arrival.dateTime() > now }.forEach { t ->
             val place = when (t.destination) { Place.HOME -> "home"; Place.UNIVERSITY -> "university"; Place.OTHER -> t.destinationName }
             add(AgendaEntry("travel:${t.id}", t.departure.dateTime().toLocalDate(), "Travel to $place", t.departure.dateTime(),
                 t.arrival.dateTime(), route = "Life", kind = AgendaKind.TRAVEL))
         }
+        (0..6).forEach { offset ->
+            val date = today.plusDays(offset.toLong())
+            DayPlanner.build(date, data, preferences, if (offset == 0) now.withSecond(0).withNano(0) else null).blocks.forEach { block ->
+                val kind = when (block.kind) {
+                    DayBlockKind.STUDY -> AgendaKind.STUDY
+                    DayBlockKind.PROJECT -> AgendaKind.PROJECT
+                    DayBlockKind.MEAL -> AgendaKind.MEAL
+                    DayBlockKind.PRAYER -> AgendaKind.PRAYER
+                    DayBlockKind.SLEEP -> AgendaKind.SLEEP
+                    else -> null
+                }
+                if (kind != null && block.end > now) add(AgendaEntry(block.id, block.start.toLocalDate(), block.title, block.start,
+                    block.end, block.detail, block.route ?: "Today", kind))
+            }
+        }
         val focus = Recurrence.focus(today, data.periods, preferences).active
         val routines = data.routineOccurrences.count { it.date <= today.toString() && !it.completed && !it.skipped }
         val labTasks = LabSubmissions.daily(today, data).size
         val count = LifeResolver.dailyTodos(today, data, focus).size + routines + labTasks
         val grouped = entries.sortedWith(compareBy<AgendaEntry> { it.date }.thenBy { it.at ?: it.date.atStartOfDay() }.thenBy { it.id })
-            .take(120).groupBy { it.date }
+            .take(240).groupBy { it.date }
         return (0..6).mapNotNull { offset ->
             val date = today.plusDays(offset.toLong())
             val rows = grouped[date].orEmpty()

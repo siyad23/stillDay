@@ -32,6 +32,7 @@ object Reminders {
     suspend fun refresh(context: Context, repository: PlannerRepository) = withContext(Dispatchers.IO) {
         val state = repository.state.value
         val preferences = state.preferences
+        WakeAlarms.refresh(context, preferences)
         val pendingSubmissions = LabSubmissions.pending(state.data)
         val notifications = context.getSystemService(NotificationManager::class.java)
         notifications.activeNotifications.forEach { notification ->
@@ -105,7 +106,7 @@ object Reminders {
         val briefing = intent.getBooleanExtra("briefing", false)
         val body = if (briefing) {
             val state = repository.state.value
-            val plan = StudyPlanner.buildDailyPlan(repository.today(), state.data, state.preferences)
+            val plan = DayPlanner.studyPlan(repository.today(), state.data, state.preferences, repository.now().withSecond(0).withNano(0))
             "${plan.items.size} study sessions · ${plan.items.sumOf { it.minutes }} min${if (plan.focus) " · exam focus" else ""}"
         } else intent.getStringExtra("body").orEmpty()
         val notification = NotificationCompat.Builder(context, CHANNEL).setSmallIcon(dev.stillday.app.R.drawable.ic_notification)
@@ -131,7 +132,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED)) return
+        if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED,
+                Intent.ACTION_MY_PACKAGE_REPLACED, AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED)) return
         AgendaWidgets.refresh(context)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {

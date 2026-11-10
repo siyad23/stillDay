@@ -16,7 +16,9 @@ import java.time.format.DateTimeFormatter
     var now by remember { mutableStateOf(vm.repository.now()) }
     LaunchedEffect(Unit) { while (true) { now = vm.repository.now(); kotlinx.coroutines.delay(30_000) } }
     val date = now.toLocalDate()
-    val plan = remember(date, s, state.preferences) { StudyPlanner.buildDailyPlan(date, s, state.preferences) }
+    val minute = now.withSecond(0).withNano(0)
+    val schedule = remember(minute, s, state.preferences) { DayPlanner.build(date, s, state.preferences, minute) }
+    val plan = remember(minute, s, state.preferences) { DayPlanner.studyPlan(date, s, state.preferences, minute) }
     LaunchedEffect(plan) { vm.action { vm.repository.rememberPlan(plan) } }
     val classes = s.occurrences.filter { it.start.take(10) == date.toString() && !it.cancelled && !Recurrence.suppressed(it, s) }
     val assessments = s.assessments.filter { it.at?.take(10) == date.toString() }
@@ -30,12 +32,13 @@ import java.time.format.DateTimeFormatter
         QuietCard {
             Text(if (plan.focus) "EXAM FOCUS" else "TODAY'S STUDY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Text("${minutesLabel(plan.completedMinutes)} of ${minutesLabel(plan.budget)}", style = MaterialTheme.typography.headlineSmall)
-            LinearProgressIndicator(progress = { (plan.completedMinutes.toFloat() / plan.budget).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
+            LinearProgressIndicator(progress = { if (plan.budget == 0) 0f else (plan.completedMinutes.toFloat() / plan.budget).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
             Text(if (plan.items.isNotEmpty()) "${plan.items.count { it.kind == StudyKind.NEW }} new · ${plan.items.count { it.kind != StudyKind.NEW }} review · ${minutesLabel(plan.items.sumOf { it.minutes })} planned"
-                else if (plan.completedMinutes >= plan.budget) "Your study budget is complete. Make room for rest." else "Your queue is clear for now.", style = MaterialTheme.typography.bodyMedium)
+                else if (plan.budget == 0) "No study time is available. Your commitments and rest come first." else if (plan.completedMinutes >= plan.budget) "Your study budget is complete. Make room for rest." else "Your queue is clear for now.", style = MaterialTheme.typography.bodyMedium)
             plan.items.firstOrNull()?.let { first -> Button(onClick = { study(first) }, modifier = Modifier.fillMaxWidth()) { Text("Start studying") } }
         }
         if (plan.focus) Text("Assignments and projects are paused in your daily suggestions. Deadlines are still shown below.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DayTimeline(schedule, navigate, plan.items.firstOrNull()?.let { item -> { study(item) } })
         SectionTitle("On the calendar", "Calendar") { navigate("Calendar") }
         if (classes.isEmpty() && assessments.isEmpty()) Text("No classes or assessments today.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         (classes.map { Triple(it.start, s.courses.find { c -> c.id == it.courseId }?.name ?: "Class", "class:${it.id}") } +
@@ -73,13 +76,13 @@ import java.time.format.DateTimeFormatter
         } }
         routines.take(15).forEach { row -> Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(row.completed, { checked -> vm.edit("Routine updated") { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(completed = checked) else r }) } })
-            Column(Modifier.weight(1f)) { Text(s.routines.find { it.id == row.routineId }?.title ?: "Routine"); Text("${if (row.date < date.toString()) "${dateLabel(row.date)} · " else ""}${row.time}", style = MaterialTheme.typography.labelMedium) }
+            Column(Modifier.weight(1f)) { Text(s.routines.find { it.id == row.routineId }?.title ?: "Routine"); Text("${if (row.date < date.toString()) "${dateLabel(row.date)} · " else ""}${row.time}–${timeLabel(ActivityTiming.end(row.date, row.time, row.durationMinutes).toString())}", style = MaterialTheme.typography.labelMedium) }
             TextButton(onClick = { vm.edit("Skipped this occurrence") { it.copy(routineOccurrences = it.routineOccurrences.map { r -> if (r.id == row.id) r.copy(skipped = true) else r }) } }) { Text("Skip") }
         } }
         SectionTitle("Meals", "Change one") { open(Forms.mealOverride(vm)) }
-        QuietCard { LifeResolver.meals(date, s).forEach { meal ->
-            Column { Text("${meal.slot} · ${meal.time}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(meal.description, style = MaterialTheme.typography.bodyMedium) }
-        }; if (LifeResolver.meals(date, s).any { it.inferred }) Text("Using your assumed Monday return. Edit travel to change it.", style = MaterialTheme.typography.labelMedium) }
+        QuietCard { LifeResolver.meals(date, s, state.preferences).forEach { meal ->
+            Column { Text("${meal.slot} · ${meal.time} · ${meal.durationMinutes}m", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary); Text(meal.description, style = MaterialTheme.typography.bodyMedium) }
+        }; if (LifeResolver.meals(date, s, state.preferences).any { it.inferred }) Text("Using your assumed Monday return. Edit travel to change it.", style = MaterialTheme.typography.labelMedium) }
         val deadlines = s.assignments.filterNot { it.completed }.map { Triple(it.dueAt, it.title, "assignment:${it.id}") } +
             s.projects.filter { it.active }.map { Triple(it.dueDate, it.title, "project:${it.id}") } +
             LabSubmissions.pending(s).filter { it.dueAt != null }.map { Triple(it.dueAt.toString(), it.title, it.route) }

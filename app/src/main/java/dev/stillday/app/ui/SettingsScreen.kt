@@ -67,8 +67,10 @@ import java.time.ZoneId
         QuietCard {
             Text("${minutesLabel(p.normalMinutes)} regular · ${minutesLabel(p.focusMinutes)} focus", style = MaterialTheme.typography.titleMedium)
             Text("Focus starts ${p.focusLeadDays} days before exams. Difficult topics use at most ${p.difficultPercent}% of the daily study budget.", style = MaterialTheme.typography.bodyMedium)
-            Text("Regular days reserve 30% for new learning; focus days reserve 20%. Unused capacity is shared, while your daily cap stays fixed.", style = MaterialTheme.typography.bodyMedium)
+            Text("Regular days reserve 30% for new learning; focus days reserve 20%. Difficult work remains capped within your available study time.", style = MaterialTheme.typography.bodyMedium)
+            Text(if (p.autoFillDay) "Your study budget currently comes from free time in your day plan. Fixed budgets above apply when automatic planning is off." else "Fixed daily budgets are active.", style = MaterialTheme.typography.bodyMedium)
         }
+        ItemRow("Day planning & sleep", "${p.studyPercent}% study · ${100 - p.studyPercent}% projects · ${minutesLabel(p.sleepMinutes)} sleep", onClick = { open(Forms.dayPlanning(vm)) })
         SectionTitle("University timezone", "Edit") { open(FormSpec("University timezone", listOf(
             FormField("timezone", "University timezone", p.timezone)), "Create each semester with its own name, start date and expected end date in University.") { v ->
             val zone = v.required("timezone"); ZoneId.of(zone)

@@ -12,9 +12,9 @@ object StudyPlanner {
 
     fun difficult(topic: Topic): Boolean = topic.difficulty >= 4 || topic.lastRating in listOf(Rating.AGAIN, Rating.HARD)
 
-    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences): DailyPlan {
+    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences, budgetOverride: Int? = null): DailyPlan {
         val focus = Recurrence.focus(date, data.periods, preferences).active
-        val budget = if (focus) preferences.focusMinutes else preferences.normalMinutes
+        val budget = budgetOverride?.coerceAtLeast(0) ?: if (focus) preferences.focusMinutes else preferences.normalMinutes
         val completedToday = data.reviews.filter { it.date == date.toString() }
         val spent = completedToday.sumOf { it.minutes }
         val remaining = (budget - spent).coerceAtLeast(0)
@@ -123,7 +123,10 @@ object StudyPlanner {
                 var hardCapacity = 0L
                 repeat(days.toInt()) { offset ->
                     val futureDate = date.plusDays(offset.toLong())
-                    val futureBudget = if (Recurrence.focus(futureDate, data.periods, preferences).active) preferences.focusMinutes else preferences.normalMinutes
+                    val futureBudget = if (budgetOverride != null && preferences.autoFillDay) {
+                        if (futureDate == date) budget else DayPlanner.build(futureDate, data, preferences).studyMinutes
+                    }
+                        else if (Recurrence.focus(futureDate, data.periods, preferences).active) preferences.focusMinutes else preferences.normalMinutes
                     capacity += futureBudget
                     hardCapacity += futureBudget * preferences.difficultPercent / 100
                 }

@@ -21,7 +21,7 @@ class PlannerUiTest {
         runBlocking {
             repository.initialize()
             repository.change { DemoData.create(repository.today()) }
-            repository.preferences { it.copy(onboardingComplete = true, demoData = true, theme = ThemeChoice.PAPER, notifications = false) }
+            repository.preferences { it.copy(onboardingComplete = true, demoData = true, theme = ThemeChoice.PAPER, notifications = false, autoFillDay = false, wakeAlarmEnabled = false) }
         }
         rule.waitUntil(15_000) { rule.onAllNodesWithText("Start studying").fetchSemanticsNodes().isNotEmpty() }
     }

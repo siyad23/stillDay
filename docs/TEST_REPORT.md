@@ -2,7 +2,7 @@
 
 Latest test date: 10 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.5**, version code **7**, including independent prework/report submission deadlines. Earlier lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
+Current development APK: version **1.0.7**, version code **9**, including dynamic day planning, timed routines, meals, prayers, sleep and automatic Fajr wake-up alarms. Earlier lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
 
 ## Environment
 
@@ -22,18 +22,28 @@ Final verification tasks (using the project-local JDK 17 and Android SDK):
 | Check | Result |
 | --- | --- |
 | Debug APK build and signing | Passed |
-| Core JVM tests | 71 passed, 0 failures |
+| Core JVM tests | 97 passed, 0 failures |
 | App JVM release-source/navigation tests | 15 passed, 0 failures |
-| Android UI/persistence/reminder/migration/updater/widget/navigation/lab tests | 35 passed; 3 opt-in screenshot/native-install checks skipped in the ordinary suite |
+| Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm tests | 41 passed; 4 opt-in screenshot/native-install checks skipped in the ordinary suite |
 | Android lint | 0 errors; remaining notices concern newer dependency versions |
 | Quiz entry stress check | Five consecutive complete chapter-selection/save flows passed within the UI test |
 | Installed APK smoke test | Exercise/example solving and syllabus selection passed outside Gradle's install/uninstall lifecycle |
 | In-place application update | Version 1.0.0 → 1.1.0 preserved the existing semester and saved quiz |
-| Database migrations | Version 1 → 2 → 3 and version 2 → 3 preserved dated semesters, topic/review history, lab attendance/reports and existing project work |
+| Database migrations | Paths from schemas 1, 2, 3 and 4 through schema 5 preserve records, attendance, lab deadlines and routine exceptions |
 | Historical native in-app update | Previous updater implementation moved a same-key test APK from version code 3 to 4 through Android's native Update prompt |
 | Historical native update retention | Opt-in assertion passed: all prior entity records and preferences retained, with newly generated Today plan entries allowed |
 | Historical signed release build | Passed with a disposable local test key; APK signature and generated metadata verified |
 | GitHub workflows | Both workflows passed actionlint; no hosted build or release was published in this session |
+
+## Day planning and Fajr alarms
+
+The 26 new core checks cover end-time/duration conversion across midnight, retained routine history and overrides, exact 30-minute work boundaries, class/lab buffers, skipped and retimed meals, all five prayers, sleep conflicts, active/paused/completed projects, exam focus, travel, fully booked days, 600 competing topics, old serialized settings, agenda integration, timezone/DST handling, and 150 varied overlapping schedules. No generated work overlaps a fixed commitment or sleep. A minute-by-minute check across eighteen hours proves that clock advancement never changes the times or category of remaining work slots; only their remaining-minute totals decrease.
+
+Two UI checks enter an overnight routine, move one occurrence with a different duration, edit prayer times/meal duration/study share/sleep target, and restore settings through backup plus a fresh Room read. Schema-4 fixtures preserve old routine completion/movement and lab deadlines while adding safe duration defaults.
+
+Three wake-alarm device checks verify the Clock backup intent, actual AlarmManager replacement/cancellation and stale-trigger rejection, and delivery of an exact alarm into the foreground ringing service. The real trigger reached maximum alarm-stream volume, exposed snooze/dismiss controls, scheduled the next daily alarm and stopped on dismiss. These three checks were rerun successfully after the final disabled-alarm/snooze safeguards. Emulator audio is disabled, so physical speaker loudness was not measured.
+
+The full ordinary suite has 45 unique cases: 41 passed and four intentionally opted out (widget screenshot fixture, day-planning screenshot fixture, and two native installer checks). The screenshot fixture is run separately for visual review. The Gradle progress display counts some skip events twice; the JUnit XML contains 45 cases with four skips and no failures.
 
 ## Lab submission deadlines
 
@@ -121,12 +131,12 @@ The paths below are local build/delivery outputs and are excluded from the sourc
 - `artifacts/release/`: the development APK as `Stillday.apk`, generated `update.json`, and checksums for a manual release using the existing development key.
 - `artifacts/screenshots/`: Pixel 7 screenshots, including light/dark themes, large text, manual Semester 7 setup, independently dated semesters, and exercise/example entry.
 - `artifacts/test-results/`: XML results, build log, and lint report.
-- `app/schemas/`: exported Room schemas 1, 2, 3 and 4.
+- `app/schemas/`: exported Room schemas 1, 2, 3, 4 and 5.
 
 ## Practical limits
 
 - Tests ran on an emulator, not a physical Pixel 7. Other Android API levels and OEM battery behavior were not exercised.
 - The widget entry activity was tested; manual launcher pinning was not automated.
 - Reminder scheduling, permission handling, and notification creation passed. Android's inexact alarms and battery policies can delay actual delivery; long-duration idle delivery was not measured.
-- The current database version is 4, with tested migrations from versions 1, 2 and 3. Future upgrades must add and test explicit migrations; destructive migration is disabled.
+- The current database version is 5, with tested migrations from versions 1, 2, 3 and 4. Future upgrades must add and test explicit migrations; destructive migration is disabled.
 - Exam capacity warnings are estimates. They do not guarantee retention or sufficient preparation when the available time is too small.

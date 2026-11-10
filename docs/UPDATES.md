@@ -13,7 +13,7 @@ Android confirmation is deliberately required. This is an in-app download/instal
 
 Android or Play Protect may show additional checks or an unknown-developer warning for a sideloaded APK. Stillday does not disable or skip those system checks.
 
-The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The lab-deadlines build uses **versionCode 7 / versionName 1.0.5**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 7.
+The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The day-planning build uses **versionCode 9 / versionName 1.0.7**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 9.
 
 ## Choose and preserve the signing identity
 
@@ -44,12 +44,12 @@ Paste into the GitHub secret, then clear the clipboard. The workflow restores th
 
 ## Publish each update
 
-1. Increase `versionCode` in `app/build.gradle.kts` for every distributable update. The current build is code **7**, name **1.0.5**; its release tag is `v1.0.5`. Commit the app changes and both workflow files, then push to `main`. For a later update use a higher code, for example **8**, name **1.0.6**.
+1. Increase `versionCode` in `app/build.gradle.kts` for every distributable update. The current build is code **9**, name **1.0.7**; its release tag is `v1.0.7`. Commit the app changes and both workflow files, then push to `main`. For a later update use a higher code, for example **10**, name **1.0.8**.
 2. Create and push a tag exactly matching `v` plus `versionName`:
 
    ```sh
-   git tag v1.0.5
-   git push origin v1.0.5
+   git tag v1.0.7
+   git push origin v1.0.7
    ```
 
 3. Open **Actions → Signed APK release**. It runs domain and app JVM tests, lint, builds a signed release APK, verifies its signature and actual metadata, and creates a **draft** release containing `Stillday.apk`, `update.json`, and `SHA256SUMS.txt`.
@@ -65,7 +65,7 @@ The regular **Android build** workflow still runs on pushes and pull requests wi
 Build a signed APK with the same key and run this with JDK 17 and Android SDK 36 configured:
 
 ```powershell
-python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.5
+python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.7
 ```
 
 Upload all three generated files from `artifacts/release/` to a published, latest GitHub release. The script extracts the real version code/name/minimum SDK from the signed APK and calculates its checksum; never hand-edit `update.json` to describe a different APK.

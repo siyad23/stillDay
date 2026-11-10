@@ -194,7 +194,7 @@ object Forms {
     fun meal(vm: PlannerViewModel, weekday: Int = 1, slot: String = "Breakfast", old: MealTemplate? = null) = FormSpec("Weekly hall meal", listOf(
         FormField("weekday", "Day", (old?.weekday ?: weekday).toString(), weekdayChoices),
         FormField("slot", "Meal", old?.slot ?: slot, listOf("Breakfast", "Lunch", "Dinner").map { Choice(it) }),
-        FormField("time", "Time", old?.time ?: when (slot) { "Lunch" -> "13:00"; "Dinner" -> "20:00"; else -> "08:00" }),
+        FormField("time", "Time", old?.time ?: with(vm.state.value.preferences) { when (slot) { "Lunch" -> lunchTime; "Dinner" -> dinnerTime; else -> breakfastTime } }),
         FormField("food", "Food", old?.food.orEmpty())), "Repeats every week when you are at university hall.") { v ->
         val day = v.number("weekday", 1..7)
         val meal = v.required("slot")
@@ -206,10 +206,12 @@ object Forms {
         FormField("date", "Date", date), FormField("slot", "Meal", slot, listOf("Breakfast", "Lunch", "Dinner").map { Choice(it) }),
         FormField("action", "Plan", MealAction.OUTSIDE.name, MealAction.entries.map { Choice(it.name, when (it) {
             MealAction.SKIP -> "I will not eat"; MealAction.OUTSIDE -> "I will eat outside"; MealAction.DIFFERENT -> "Different food"
-        }) }), FormField("food", "Different food · optional", optional = true))) { v ->
+        }) }), FormField("food", "Different food · optional", optional = true),
+        FormField("overrideTime", "Meal time · optional", optional = true))) { v ->
         val action = MealAction.valueOf(v.getValue("action"))
         require(action != MealAction.DIFFERENT || !v["food"].isNullOrBlank()) { "Enter the different food." }
-        val row = MealOverride(date = v.dateValue("date"), slot = v.required("slot"), action = action, food = v["food"].orEmpty())
+        val row = MealOverride(date = v.dateValue("date"), slot = v.required("slot"), action = action, food = v["food"].orEmpty(),
+            time = v["overrideTime"]?.takeIf { it.isNotBlank() }?.let { v.timeValue("overrideTime") })
         vm.edit { it.copy(mealOverrides = it.mealOverrides.filterNot { m -> m.date == row.date && m.slot == row.slot } + row) }
     }
 
@@ -246,12 +248,63 @@ object Forms {
         FormField("title", "Activity", old?.title.orEmpty()), FormField("frequency", "Repeat", (old?.frequency ?: Frequency.WEEKLY).name, Frequency.entries.toTypedArray().choices()),
         FormField("interval", "Repeat every N days / weeks / months", (old?.interval ?: 1).toString()),
         FormField("start", "Start date", old?.start ?: vm.repository.today().toString()),
-        FormField("end", "End date", old?.end ?: vm.repository.today().plusMonths(3).toString()), FormField("time", "Time", old?.time ?: "18:00"))) { v ->
+        FormField("end", "End date", old?.end ?: vm.repository.today().plusMonths(3).toString())) +
+        timingFields(old?.time ?: "18:00", old?.durationMinutes ?: 30, old?.endTime),
+        "Choose an ending time or a duration. An ending time earlier than the start finishes the next day. Past, completed and individually moved occurrences are preserved.") { v ->
         val row = Routine(old?.id ?: newId(), v.required("title"), v.dateValue("start"), v.dateValue("end"), v.timeValue("time"),
-            Frequency.valueOf(v.getValue("frequency")), v.number("interval", 1..365))
+            Frequency.valueOf(v.getValue("frequency")), v.number("interval", 1..365), activityMinutes(v),
+            if (v["timing"] == "END") v.timeValue("endTime") else null)
         require(!row.end.date().isBefore(row.start.date())) { "End date must follow start date." }
         vm.edit { s -> s.copy(routines = s.routines.filterNot { it.id == row.id } + row,
-            routineOccurrences = s.routineOccurrences.filterNot { it.routineId == row.id } + Recurrence.routineOccurrences(row, s.routineOccurrences.filter { it.routineId == row.id })) }
+            routineOccurrences = s.routineOccurrences.filterNot { it.routineId == row.id } + Recurrence.routineOccurrences(row, s.routineOccurrences.filter { it.routineId == row.id }, vm.repository.today())) }
+    }
+
+    fun timingFields(time: String, minutes: Int, endTime: String? = null) = listOf(
+        FormField("time", "Start time", time),
+        FormField("timing", "Finish using", if (endTime == null) "DURATION" else "END", listOf(Choice("DURATION", "Time required"), Choice("END", "Ending time"))),
+        FormField("duration", "Time required in minutes", minutes.toString(), condition = "timing" to "DURATION"),
+        FormField("endTime", "End time", endTime ?: java.time.LocalTime.parse(time).plusMinutes(minutes.toLong()).toString(), condition = "timing" to "END"))
+
+    fun activityMinutes(v: Map<String, String>): Int = if (v["timing"] == "END") ActivityTiming.duration(v.timeValue("time"), v.timeValue("endTime")) else v.number("duration", 1..1440)
+
+    fun dayPlanning(vm: PlannerViewModel): FormSpec {
+        val p = vm.state.value.preferences
+        return FormSpec("Day planning", listOf(
+            FormField("share", "Study share % · rest goes to projects", p.studyPercent.toString()),
+            FormField("sleep", "Sleep target in minutes", p.sleepMinutes.toString()),
+            FormField("wakeLead", "Wake minutes before Fajr", p.wakeBeforeFajrMinutes.toString()),
+            FormField("wakeTime", "Wake time until Fajr is set", p.fallbackWakeTime)),
+            "Study and active projects fill gaps of at least 30 minutes. Classes and labs keep 10 minutes free before and after. Exam focus reserves all work time for study.") { v ->
+            val next = p.copy(studyPercent = v.number("share", 0..100), sleepMinutes = v.number("sleep", 60..720),
+                wakeBeforeFajrMinutes = v.number("wakeLead", 0..120), fallbackWakeTime = v.timeValue("wakeTime"))
+            Validation.preferences(next)
+            vm.preferences { it.copy(studyPercent = next.studyPercent, sleepMinutes = next.sleepMinutes,
+                wakeBeforeFajrMinutes = next.wakeBeforeFajrMinutes, fallbackWakeTime = next.fallbackWakeTime) }
+        }
+    }
+
+    fun mealTiming(vm: PlannerViewModel): FormSpec {
+        val p = vm.state.value.preferences
+        return FormSpec("Meal timing", listOf(
+            FormField("breakfastTime", "Breakfast time", p.breakfastTime), FormField("lunchTime", "Lunch time", p.lunchTime),
+            FormField("dinnerTime", "Dinner time", p.dinnerTime), FormField("minutes", "Minutes per meal", p.mealMinutes.toString())),
+            "These are your default meal times, including at home. A weekly hall meal or a dated override can set a different time. Skipped meals leave the time available.") { v ->
+            val breakfast = v.timeValue("breakfastTime"); val lunch = v.timeValue("lunchTime"); val dinner = v.timeValue("dinnerTime"); val minutes = v.number("minutes", 1..180)
+            vm.preferences { it.copy(breakfastTime = breakfast, lunchTime = lunch, dinnerTime = dinner, mealMinutes = minutes) }
+        }
+    }
+
+    fun prayers(vm: PlannerViewModel): FormSpec {
+        val p = vm.state.value.preferences
+        return FormSpec("Prayer times", Prayer.entries.map { prayer ->
+            FormField("${prayer.name}Time", prayer.label, p.prayerTimes[prayer.name].orEmpty())
+        } + FormField("minutes", "Minutes per prayer", p.prayerMinutes.toString()),
+            "Enter your local times manually in 24-hour format. Update them as they change. Wake-up is ${p.wakeBeforeFajrMinutes} minutes before Fajr, and bedtime allows your sleep target.") { v ->
+            val times = Prayer.entries.associate { it.name to v.timeValue("${it.name}Time") }
+            val minutes = v.number("minutes", 1..180)
+            Validation.preferences(p.copy(prayerTimes = times, prayerMinutes = minutes))
+            vm.preferences { it.copy(prayerTimes = times, prayerMinutes = minutes) }
+        }
     }
 }
 
@@ -264,6 +317,7 @@ object Forms {
     var periodId by remember { mutableStateOf(old?.periodId.orEmpty()) }
     var date by remember { mutableStateOf(old?.at?.take(10) ?: vm.repository.today().toString()) }
     var time by remember { mutableStateOf(old?.at?.let(::timeLabel) ?: "10:00") }
+    var duration by remember { mutableStateOf((old?.durationMinutes ?: 60).toString()) }
     var exact by remember { mutableStateOf(old?.at != null || kind == AssessmentKind.QUIZ) }
     var location by remember { mutableStateOf(old?.location.orEmpty()) }
     val selected = remember { mutableStateListOf<String>().apply { addAll(s.coverage.filter { it.assessmentId == old?.id }.map { it.topicId }) } }
@@ -277,7 +331,9 @@ object Forms {
             require(kind == AssessmentKind.QUIZ || periodId.isNotEmpty()) { "Choose an exam period first." }
             require(exact || kind != AssessmentKind.QUIZ) { "A quiz needs its date and time." }
             val at = if (exact || kind == AssessmentKind.QUIZ) "${date}T$time".dateTime().toString() else null
-            val assessment = Assessment(draftId, courseId, title.trim(), kind, at, location.trim(), periodId.takeIf { kind != AssessmentKind.QUIZ && it.isNotEmpty() })
+            val minutes = duration.toIntOrNull()
+            require(minutes != null && minutes in 1..1440) { "Enter an assessment duration from 1 to 1440 minutes." }
+            val assessment = Assessment(draftId, courseId, title.trim(), kind, at, location.trim(), periodId.takeIf { kind != AssessmentKind.QUIZ && it.isNotEmpty() }, minutes)
             if (assessment.periodId != null && at != null) {
                 val period = s.periods.first { it.id == assessment.periodId }
                 require(!date.date().isBefore(period.start.date()) && !date.date().isAfter(period.end.date())) { "Exam date must fall inside its exam period." }
@@ -307,6 +363,7 @@ object Forms {
         if (exact || kind == AssessmentKind.QUIZ) {
             DateTimeField("Date", date, true) { date = it }
             DateTimeField("Time", time, false) { time = it }
+            OutlinedTextField(duration, { duration = it }, label = { Text("Duration in minutes") }, modifier = Modifier.fillMaxWidth())
         }
         OutlinedTextField(location, { location = it }, label = { Text("Location") }, modifier = Modifier.fillMaxWidth())
         Text("Syllabus", style = MaterialTheme.typography.titleMedium)

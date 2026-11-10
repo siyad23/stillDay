@@ -92,7 +92,7 @@ abstract class PlannerDao {
 @Database(entities = [Semester::class, Course::class, ScheduleRule::class, Occurrence::class, Chapter::class, Topic::class,
     ExamPeriod::class, Assessment::class, AssessmentTopic::class, Assignment::class, Project::class, Milestone::class,
     Todo::class, Experiment::class, MealTemplate::class, MealOverride::class, TravelLeg::class, Routine::class,
-    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 4, exportSchema = true)
+    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 5, exportSchema = true)
 abstract class PlannerDatabase : RoomDatabase() {
     abstract fun planner(): PlannerDao
     companion object {
@@ -115,7 +115,16 @@ abstract class PlannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE experiments ADD COLUMN reportDueAt TEXT DEFAULT NULL")
             }
         }
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE routines ADD COLUMN durationMinutes INTEGER NOT NULL DEFAULT 30")
+                db.execSQL("ALTER TABLE routines ADD COLUMN endTime TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE routine_occurrences ADD COLUMN durationMinutes INTEGER NOT NULL DEFAULT 30")
+                db.execSQL("ALTER TABLE meal_overrides ADD COLUMN time TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE assessments ADD COLUMN durationMinutes INTEGER NOT NULL DEFAULT 60")
+            }
+        }
         fun create(context: Context) = Room.databaseBuilder(context, PlannerDatabase::class.java, "stillday.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
     }
 }

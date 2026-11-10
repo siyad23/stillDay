@@ -41,7 +41,20 @@ data class Preferences(
     val deadlineLeadHours: Int = 24,
     val onboardingComplete: Boolean = false,
     val demoData: Boolean = false,
-    val reminderSetupDone: Boolean = false
+    val reminderSetupDone: Boolean = false,
+    val autoFillDay: Boolean = true,
+    val studyPercent: Int = 50,
+    val mealMinutes: Int = 20,
+    val breakfastTime: String = "08:00",
+    val lunchTime: String = "13:00",
+    val dinnerTime: String = "20:00",
+    val prayerTimes: Map<String, String> = emptyMap(),
+    val prayerMinutes: Int = 30,
+    val sleepMinutes: Int = 360,
+    val wakeBeforeFajrMinutes: Int = 15,
+    val fallbackWakeTime: String = "07:00",
+    val wakeAlarmEnabled: Boolean = false,
+    val highAlarmVolume: Boolean = true
 )
 
 @Entity(tableName = "semesters") @Serializable
@@ -86,7 +99,8 @@ data class ExamPeriod(@PrimaryKey val id: String = newId(), val semesterId: Stri
 @Entity(tableName = "assessments", indices = [Index("courseId"), Index("periodId")]) @Serializable
 data class Assessment(@PrimaryKey val id: String = newId(), val courseId: String, val title: String,
     val kind: AssessmentKind = AssessmentKind.QUIZ, val at: String? = null, val location: String = "",
-    val periodId: String? = null)
+    val periodId: String? = null,
+    @ColumnInfo(defaultValue = "60") val durationMinutes: Int = 60)
 
 @Entity(tableName = "assessment_topics", primaryKeys = ["assessmentId", "topicId"], indices = [Index("topicId")]) @Serializable
 data class AssessmentTopic(val assessmentId: String, val topicId: String, val checked: Boolean = false)
@@ -118,7 +132,8 @@ data class MealTemplate(@PrimaryKey val id: String = newId(), val weekday: Int, 
 
 @Entity(tableName = "meal_overrides", indices = [Index(value = ["date", "slot"], unique = true)]) @Serializable
 data class MealOverride(@PrimaryKey val id: String = newId(), val date: String, val slot: String,
-    val action: MealAction, val food: String = "")
+    val action: MealAction, val food: String = "",
+    @ColumnInfo(defaultValue = "NULL") val time: String? = null)
 
 @Entity(tableName = "travel", indices = [Index("tripId"), Index("departure")]) @Serializable
 data class TravelLeg(@PrimaryKey val id: String = newId(), val tripId: String = id,
@@ -128,11 +143,14 @@ data class TravelLeg(@PrimaryKey val id: String = newId(), val tripId: String = 
 
 @Entity(tableName = "routines") @Serializable
 data class Routine(@PrimaryKey val id: String = newId(), val title: String, val start: String, val end: String,
-    val time: String = "18:00", val frequency: Frequency = Frequency.ONCE, val interval: Int = 1)
+    val time: String = "18:00", val frequency: Frequency = Frequency.ONCE, val interval: Int = 1,
+    @ColumnInfo(defaultValue = "30") val durationMinutes: Int = 30,
+    @ColumnInfo(defaultValue = "NULL") val endTime: String? = null)
 
 @Entity(tableName = "routine_occurrences", indices = [Index("routineId"), Index("date")]) @Serializable
 data class RoutineOccurrence(@PrimaryKey val id: String, val routineId: String, val date: String, val time: String,
-    val completed: Boolean = false, val skipped: Boolean = false, val overridden: Boolean = false)
+    val completed: Boolean = false, val skipped: Boolean = false, val overridden: Boolean = false,
+    @ColumnInfo(defaultValue = "30") val durationMinutes: Int = 30)
 
 @Entity(tableName = "review_events", indices = [Index("topicId"), Index("date")]) @Serializable
 data class ReviewEvent(@PrimaryKey val id: String = newId(), val topicId: String, val date: String,
@@ -161,7 +179,8 @@ data class Snapshot(
 
 data class FocusState(val active: Boolean, val periods: List<ExamPeriod>)
 data class LocationState(val place: Place?, val name: String, val inferred: Boolean = false, val inferredArrival: String? = null)
-data class ResolvedMeal(val slot: String, val time: String, val description: String, val inferred: Boolean)
+data class ResolvedMeal(val slot: String, val time: String, val description: String, val inferred: Boolean,
+    val durationMinutes: Int = 20, val skipped: Boolean = false)
 data class StudyItem(val topic: Topic, val course: Course, val kind: StudyKind, val minutes: Int, val reason: String)
 data class DailyPlan(val date: LocalDate, val budget: Int, val completedMinutes: Int, val items: List<StudyItem>,
     val deferredMinutes: Int, val warnings: List<String>, val focus: Boolean, val deferredTopicIds: List<String> = emptyList())

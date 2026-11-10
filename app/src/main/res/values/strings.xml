@@ -1,4 +1,11 @@
 <resources>
+    <string name="app_name">Stillday</string>
+    <string name="widget_open_calendar">Open full calendar</string>
+    <string name="widget_next_week">stillday · next 7 days</string>
+    <string name="widget_add_quiz">Add quiz</string>
+    <string name="widget_quiz_title">+ Add quiz</string>
+    <string name="widget_quiz_subtitle">Capture it before you forget</string>
+    <string name="widget_setup">Open Stillday to set up your day.</string>
     <string name="widget_description">Quickly add a course quiz and its syllabus</string>
     <string name="agenda_widget_name">Stillday agenda</string>
     <string name="agenda_widget_description">A quiet, scrollable week of classes, quizzes, deadlines and tasks</string>

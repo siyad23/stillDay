@@ -2,5 +2,5 @@
     android:minWidth="250dp" android:minHeight="180dp"
     android:minResizeWidth="250dp" android:minResizeHeight="180dp"
     android:updatePeriodMillis="1800000" android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen" android:initialLayout="@layout/agenda_widget_preview"
+    android:widgetCategory="home_screen" android:initialLayout="@layout/agenda_widget_native"
     android:description="@string/agenda_widget_description" />

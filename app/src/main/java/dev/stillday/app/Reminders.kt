@@ -135,6 +135,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action !in setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED, Intent.ACTION_DATE_CHANGED,
                 Intent.ACTION_MY_PACKAGE_REPLACED, AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED)) return
         AgendaWidgets.refresh(context)
+        QuizWidgets.refresh(context)
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try { val repository = (context.applicationContext as StilldayApplication).repository; repository.initialize(); Reminders.refresh(context, repository) }

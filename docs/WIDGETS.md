@@ -1,4 +1,4 @@
-# Stillday agenda widget
+# Stillday home-screen widgets
 
 Add it from **Settings → Home-screen widgets → Add agenda widget**, then accept the launcher's placement prompt. You can also long-press an empty area of the home screen, choose **Widgets → Stillday → Stillday agenda**, and drag it into place. The existing Add Quiz shortcut remains available separately.
 
@@ -6,10 +6,18 @@ The agenda groups today and the next six days by date. It shows upcoming/ongoing
 
 Cancelled classes and classes suspended during exams are omitted. Individual reschedules use their actual new date and time. Completed assignments/routines and paused projects are omitted. Provisional exams are labeled until the routine is entered. Deadlines remain visible during exam focus.
 
-The widget follows Paper, Warm Sand, Charcoal, Midnight, or the system theme selected in the app. Its rounded background is 90% opaque, with lightly translucent cards and one muted accent. This lets the wallpaper show through without sacrificing legibility. It does not blur or read your wallpaper. No additional permission or network access is needed.
+The widget follows Paper, Warm Sand, Charcoal, Midnight, or the system theme selected in the app. Its rounded background is 90% opaque, with lightly translucent cards and muted category accents. This lets the wallpaper show through without sacrificing legibility. It does not blur or read your wallpaper. No additional permission or network access is needed.
 
-Drag the widget's resize handles to change its size; scroll inside the agenda to see later entries. It supports a minimum layout of 250 × 180 dp. Long names wrap to two lines. Up to 120 upcoming entries are included to keep the home-screen view bounded.
+Drag the widget's resize handles to change its size; scroll inside the agenda to see later entries. It supports a minimum layout of 250 × 180 dp. Long names wrap to two lines. The widget includes the next 40 entries; **Open full calendar** appears at the end when more are available. The complete schedule stays in the app. This limit includes generated study, project, meal, prayer and sleep entries.
+
+Version 1.0.11 gives both widgets native Android RemoteViews providers. Add Quiz has an immediately usable native layout, and the agenda loads scrolling rows through Android's collection service. Widget display no longer depends on Glance composition sessions or widget WorkManager jobs. Database loading runs off the widget service's main thread to avoid startup hangs. Existing provider names are retained so placed widgets keep their IDs. If your launcher retains an old error view after updating, remove and re-add both widgets once.
+
+The 40-entry limit and 160-code-point text limits protect against a separate busy-agenda transport failure. Rows are delivered individually, keeping the main widget update small even with a large schedule.
 
 Saved changes, completed tasks, imports, resets and theme changes request an immediate widget refresh. Android also requests a refresh roughly every 30 minutes while the widget is placed. Boot/date/time/timezone changes request a refresh; Android's background scheduling may delay it. Dates use your configured university timezone, and time labels follow the phone's 12/24-hour setting.
 
 Demo screenshots are captured from the real Pixel 7 emulator launcher using synthetic persisted records, not image mockups. See [TEST_REPORT.md](TEST_REPORT.md) for verification results.
+
+<img src="screenshots/widget-fixed-home.png" alt="Fixed agenda widget on the Pixel 7 home screen with synthetic prayer, project and study activities" width="300" />
+
+<img src="screenshots/widget-quiz-home.png" alt="Native Add Quiz widget on the Pixel 7 launcher with its translucent rounded surface" width="300" />

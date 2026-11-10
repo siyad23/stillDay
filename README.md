@@ -96,7 +96,7 @@ Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManag
 ## Architecture and tests
 
 - `domain`: serializable entities, recurrence, location/meal resolution, validation, focus calculation, and deterministic study planning. JVM tests include a 150-day, 180-topic simulation with mixed difficulty and missed weeks.
-- `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, Glance widget, Android reminders, and instrumented UI/persistence tests.
+- `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, native Android home-screen widgets, Android reminders, and instrumented UI/persistence tests.
 - Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations; version 5 → 6 adds weekly meal plans; version 6 → 7 adds per-slot rooms and exam-focus overrides. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
 
 ```powershell

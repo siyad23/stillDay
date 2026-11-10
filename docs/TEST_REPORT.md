@@ -1,8 +1,18 @@
 # Stillday verification
 
-Latest test date: 10 November 2026 (Asia/Dhaka).
+Latest test date: 11 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.9**, version code **11**, including per-slot rooms, detailed theory exam routines, focus controls and today's manual study selection. Earlier visual-system, day-planning, lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
+Current development APK: version **1.0.11**, version code **13**, using native Android rendering for both home-screen widgets. Earlier exam, visual-system, day-planning, lab-type, navigation, updater and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
+
+## Both widgets: native rendering and first placement
+
+Both providers now use standard Android AppWidgetProvider and RemoteViews. Add Quiz has a native initial layout and direct PendingIntent; the agenda uses a bound RemoteViews collection service with individually loaded rows. Glance rendering dependencies have been removed. Refreshes go directly to the provider instead of enqueueing widget rendering jobs, and the provider names stay unchanged for existing placements. Displayed dates, themes, translucent backgrounds, category colors and event routes are preserved.
+
+An earlier stress case reproduced a separate agenda failure: Android rejected an 883,736-byte update with TransactionTooLargeException. The widget retains its 40-entry and 160-code-point text bounds, and Open full calendar preserves access to overflow. Stored records are unchanged. Native collection delivery keeps the main update at **2,744 bytes**, below the 25,000-byte regression ceiling. Database loading runs on the collection Binder thread; service creation itself performs no database work.
+
+Seven targeted device checks cover automatic first placement through the actual provider broadcast (without manually calling update), busy scrolling and overflow, populated and compact agendas, live theme/onboarding refresh on the same widget ID, Add Quiz entry via its real PendingIntent, the full-calendar PendingIntent, payload size, provider registration, and nonblocking service startup while the repository is locked. Two opt-in screenshot fixtures are skipped in the regular targeted run. The tests pass after a fresh signed release install on the Pixel 7/API 36 emulator. A separate cold-process check refreshes both placed widgets while asserting that no app activity is resumed. Both launcher screenshots were captured and visually inspected. Three JVM tests cover bounded entries, intact calendar/IDs/routes and safe Unicode truncation. All **146 JVM tests (124 domain + 22 app)** pass; both debug and release builds/lint are checked.
+
+The full 48-check device regression run below belongs to 1.0.9. Database schema remains 7. The exact exception from the user's physical phone was not available; verification targets the reported first-add behavior in both widgets as well as the separately reproduced payload failure.
 
 ## Environment
 
@@ -23,9 +33,9 @@ Final verification tasks (using the project-local JDK 17 and Android SDK):
 | --- | --- |
 | Debug APK build and signing | Passed |
 | Core JVM tests | 124 passed, 0 failures |
-| App JVM release-source/navigation/visual-contrast/legacy-backup tests | 19 passed, 0 failures |
-| Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm/meal/exam tests | 48 passed, 0 failures; 6 opt-in fixtures skipped in the ordinary suite |
-| Android lint | 0 errors; 20 warnings and 3 hints, covering dependency updates and existing style suggestions |
+| App JVM release-source/navigation/visual-contrast/legacy-backup/widget tests | 22 passed, 0 failures |
+| Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm/meal/exam tests | Previous 1.0.9 full suite: 48 passed, 0 failures, 6 opt-in skips; current widget fix: 7 targeted checks plus the isolated cold-process check passed |
+| Android lint | 0 errors; 18 warnings and 3 hints, covering dependency updates and existing style suggestions |
 | Quiz entry stress check | Five consecutive complete chapter-selection/save flows passed within the UI test |
 | Installed APK smoke test | Exercise/example solving and syllabus selection passed outside Gradle's install/uninstall lifecycle |
 | In-place application update | Version 1.0.0 → 1.1.0 preserved the existing semester and saved quiz |

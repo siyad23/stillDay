@@ -10,36 +10,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.glance.GlanceId
-import androidx.glance.GlanceModifier
-import androidx.glance.action.actionStartActivity
-import androidx.glance.action.clickable
-import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetReceiver
-import androidx.glance.appwidget.provideContent
-import androidx.glance.background
-import androidx.glance.layout.*
-import androidx.glance.text.*
-import androidx.glance.unit.ColorProvider
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.stillday.app.ui.AssessmentEditor
 import dev.stillday.app.ui.StilldayTheme
 
-class QuizWidget : GlanceAppWidget() {
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent {
-            androidx.glance.layout.Column(GlanceModifier.fillMaxSize().background(Color(0xFFE9EEE7)).padding(14.dp)
-                .clickable(actionStartActivity<QuickQuizActivity>()), verticalAlignment = androidx.glance.layout.Alignment.CenterVertically) {
-                androidx.glance.text.Text("+ Add quiz", style = TextStyle(color = ColorProvider(Color(0xFF304B3A)), fontSize = 17.sp, fontWeight = FontWeight.Medium))
-                androidx.glance.text.Text("Capture it before you forget", style = TextStyle(color = ColorProvider(Color(0xFF536F5E)), fontSize = 11.sp))
-            }
-        }
+class QuizWidget {
+    fun update(context: Context, id: Int) {
+        android.appwidget.AppWidgetManager.getInstance(context).updateAppWidget(id, WidgetViews.quiz(context, id))
     }
 }
-class QuizWidgetReceiver : GlanceAppWidgetReceiver() { override val glanceAppWidget = QuizWidget() }
+class QuizWidgetReceiver : android.appwidget.AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: android.appwidget.AppWidgetManager, ids: IntArray) {
+        ids.forEach { QuizWidget().update(context, it) }
+    }
+    override fun onAppWidgetOptionsChanged(context: Context, manager: android.appwidget.AppWidgetManager, id: Int, options: Bundle) {
+        QuizWidget().update(context, id)
+    }
+}
+object QuizWidgets {
+    fun refresh(context: Context) {
+        val manager = android.appwidget.AppWidgetManager.getInstance(context)
+        manager.getAppWidgetIds(android.content.ComponentName(context, QuizWidgetReceiver::class.java))
+            .forEach { QuizWidget().update(context, it) }
+    }
+}
 
 class QuickQuizActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

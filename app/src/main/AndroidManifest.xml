@@ -31,6 +31,7 @@
         <activity android:name=".QuickQuizActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".WakeAlarmActivity" android:exported="false" android:excludeFromRecents="true" />
         <service android:name=".WakeAlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".AgendaRemoteViewsService" android:permission="android.permission.BIND_REMOTEVIEWS" android:exported="false" />
         <receiver android:name=".WakeAlarmReceiver" android:exported="false" />
         <receiver android:name=".QuizWidgetReceiver" android:exported="true">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>

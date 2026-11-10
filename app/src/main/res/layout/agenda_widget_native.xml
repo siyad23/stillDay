@@ -1,0 +1,27 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root" android:layout_width="match_parent" android:layout_height="match_parent">
+    <ImageView android:id="@+id/widget_background" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:src="@drawable/widget_surface" android:scaleType="fitXY" android:contentDescription="@null" />
+    <LinearLayout android:id="@+id/widget_content" android:layout_width="match_parent" android:layout_height="match_parent"
+        android:orientation="vertical" android:padding="12dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:baselineAligned="false">
+            <LinearLayout android:id="@+id/widget_calendar" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_height="wrap_content" android:orientation="vertical">
+                <TextView android:id="@+id/widget_month" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/app_name" android:textSize="21sp" android:textColor="#242C26" android:fontFamily="sans-serif-medium" android:maxLines="1" />
+                <TextView android:id="@+id/widget_subtitle" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/widget_next_week" android:textSize="11sp" android:textColor="#626F65" android:maxLines="1" />
+            </LinearLayout>
+            <FrameLayout android:id="@+id/widget_add" android:layout_width="48dp" android:layout_height="48dp" android:contentDescription="@string/widget_add_quiz">
+                <ImageView android:id="@+id/widget_add_background" android:layout_width="match_parent" android:layout_height="match_parent"
+                    android:src="@drawable/widget_date" android:scaleType="fitXY" android:contentDescription="@null" />
+                <ImageView android:id="@+id/widget_add_icon" android:layout_width="22dp" android:layout_height="22dp" android:layout_gravity="center"
+                    android:src="@drawable/ic_widget_add" android:contentDescription="@null" />
+            </FrameLayout>
+        </LinearLayout>
+        <ListView android:id="@+id/widget_agenda_list" android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="1" android:layout_marginTop="12dp" android:divider="@null" android:visibility="gone" />
+        <TextView android:id="@+id/widget_empty" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+            android:gravity="center_vertical" android:text="@string/widget_setup" android:textSize="14sp" android:textColor="#242C26" />
+    </LinearLayout>
+</FrameLayout>

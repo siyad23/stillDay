@@ -58,7 +58,7 @@ class AgendaWidgetTest {
                 val work = androidx.work.WorkManager.getInstance(app)
                 while (work.getWorkInfosForUniqueWork("agenda_widget_refresh").get().any { !it.state.isFinished }) delay(100)
             }
-            delay(1500) // Allow the separately scheduled Glance composition to reach the host.
+            delay(1500) // Allow the provider's collection refresh to reach the host.
         }
     }
 }

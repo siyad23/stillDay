@@ -92,7 +92,7 @@ abstract class PlannerDao {
 @Database(entities = [Semester::class, Course::class, ScheduleRule::class, Occurrence::class, Chapter::class, Topic::class,
     ExamPeriod::class, Assessment::class, AssessmentTopic::class, Assignment::class, Project::class, Milestone::class,
     Todo::class, Experiment::class, MealTemplate::class, MealOverride::class, TravelLeg::class, Routine::class,
-    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 5, exportSchema = true)
+    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 7, exportSchema = true)
 abstract class PlannerDatabase : RoomDatabase() {
     abstract fun planner(): PlannerDao
     companion object {
@@ -124,7 +124,19 @@ abstract class PlannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE assessments ADD COLUMN durationMinutes INTEGER NOT NULL DEFAULT 60")
             }
         }
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE meal_templates ADD COLUMN defaultPlan TEXT NOT NULL DEFAULT 'FOLLOW_DEFAULT'")
+            }
+        }
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE schedule_rules ADD COLUMN location TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE schedule_rules SET location = COALESCE((SELECT location FROM courses WHERE courses.id = schedule_rules.courseId), '')")
+                db.execSQL("ALTER TABLE exam_periods ADD COLUMN focusOverride TEXT NOT NULL DEFAULT 'AUTO'")
+            }
+        }
         fun create(context: Context) = Room.databaseBuilder(context, PlannerDatabase::class.java, "stillday.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
     }
 }

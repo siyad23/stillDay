@@ -62,7 +62,7 @@ object DayPlanner {
             val start = o.start.dateTime(); val end = o.end.dateTime()
             add(DayBlock("prepare:${o.id}", "Prepare for ${course.name}", start.minusMinutes(10), start, DayBlockKind.PREPARATION, "Kept vacant", "class:${o.id}"))
             add(DayBlock("class:${o.id}", course.name, start, end,
-                if (course.type == CourseType.LAB) DayBlockKind.LAB else DayBlockKind.CLASS, o.location.ifBlank { course.location }, "class:${o.id}"))
+                if (course.type == CourseType.LAB) DayBlockKind.LAB else DayBlockKind.CLASS, o.location, "class:${o.id}"))
             add(DayBlock("after:${o.id}", "After ${course.name}", end, end.plusMinutes(10), DayBlockKind.PREPARATION, "Kept vacant", "class:${o.id}"))
         }
         data.assessments.filter { it.at != null }.forEach { a ->
@@ -174,9 +174,9 @@ object DayPlanner {
     }
 
     fun studyPlan(date: LocalDate, data: Snapshot, p: Preferences, notBefore: LocalDateTime? = null): DailyPlan {
-        if (!p.autoFillDay) return StudyPlanner.buildDailyPlan(date, data, p)
+        if (!p.autoFillDay) return StudyPlanner.buildDailyPlan(date, data, p, now = notBefore)
         val remaining = build(date, data, p, notBefore).studyMinutes
         val spent = if (notBefore == null) 0 else data.reviews.filter { it.date == date.toString() }.sumOf { it.minutes }
-        return StudyPlanner.buildDailyPlan(date, data, p, remaining + spent)
+        return StudyPlanner.buildDailyPlan(date, data, p, remaining + spent, notBefore)
     }
 }

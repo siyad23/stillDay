@@ -2,7 +2,7 @@
 
 Latest test date: 10 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.7**, version code **9**, including dynamic day planning, timed routines, meals, prayers, sleep and automatic Fajr wake-up alarms. Earlier lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
+Current development APK: version **1.0.9**, version code **11**, including per-slot rooms, detailed theory exam routines, focus controls and today's manual study selection. Earlier visual-system, day-planning, lab-type, navigation, updater, widget and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
 
 ## Environment
 
@@ -22,18 +22,34 @@ Final verification tasks (using the project-local JDK 17 and Android SDK):
 | Check | Result |
 | --- | --- |
 | Debug APK build and signing | Passed |
-| Core JVM tests | 97 passed, 0 failures |
-| App JVM release-source/navigation tests | 15 passed, 0 failures |
-| Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm tests | 41 passed; 4 opt-in screenshot/native-install checks skipped in the ordinary suite |
-| Android lint | 0 errors; remaining notices concern newer dependency versions |
+| Core JVM tests | 124 passed, 0 failures |
+| App JVM release-source/navigation/visual-contrast/legacy-backup tests | 19 passed, 0 failures |
+| Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm/meal/exam tests | 48 passed, 0 failures; 6 opt-in fixtures skipped in the ordinary suite |
+| Android lint | 0 errors; 20 warnings and 3 hints, covering dependency updates and existing style suggestions |
 | Quiz entry stress check | Five consecutive complete chapter-selection/save flows passed within the UI test |
 | Installed APK smoke test | Exercise/example solving and syllabus selection passed outside Gradle's install/uninstall lifecycle |
 | In-place application update | Version 1.0.0 → 1.1.0 preserved the existing semester and saved quiz |
-| Database migrations | Paths from schemas 1, 2, 3 and 4 through schema 5 preserve records, attendance, lab deadlines and routine exceptions |
+| Database migrations | Paths from schemas 1, 2, 3, 4, 5 and 6 through schema 7 preserve records, menus, attendance, lab deadlines, per-occurrence rooms and routine exceptions |
 | Historical native in-app update | Previous updater implementation moved a same-key test APK from version code 3 to 4 through Android's native Update prompt |
 | Historical native update retention | Opt-in assertion passed: all prior entity records and preferences retained, with newly generated Today plan entries allowed |
 | Historical signed release build | Passed with a disposable local test key; APK signature and generated metadata verified |
 | GitHub workflows | Both workflows passed actionlint; no hosted build or release was published in this session |
+
+## Per-slot rooms, exam routines and study overrides
+
+Nineteen new domain tests cover independent slot rooms and explicit blanks; retained past classes, attendance and individual reschedules; theory-only mid/final validation; matching periods and dates; early manual focus, manual stop, automatic lead-in and expiry; resumed project allocation; next-paper new/review selection; exact-time same-day transitions; rescheduled and simultaneous papers; missing syllabus and unpublished routines; later-paper manual selection, daily expiry and completed-item exclusion; explicit difficult-cap overrides within the time budget; delayed exams past the expected semester end; and serialization defaults.
+
+Two new app JVM tests verify old backup room conversion and preserve explicitly blank or different slot rooms. Three new device UI checks enter two slots with different rooms, enter and edit a theory paper's date/time/room/syllabus, verify Automatic/Start/Stop focus and Back behavior, choose a not-due review from a later paper, restore automatic suggestions, retain changes across recreation and backup, and resume project time after stopping focus. A schema-6 fixture verifies one-time room conversion, retained occurrence overrides and attendance, and persisted focus controls; all earlier migration fixtures now continue through schema 7.
+
+The ordinary device run contains 54 unique cases: **48 passed and six opt-in fixtures skipped**, with no failures or errors. All three wake-alarm checks passed in this run. Gradle's progress display counts skip events twice; totals here come from the JUnit XML. The opt-in fixtures cover four screenshot sets and two native installer checks. The new exam screenshot fixture also runs separately with synthetic data.
+
+## Activity visual system and meal defaults
+
+Eight core checks cover everyday skipping across a full week, weekday Eat/Skip exceptions, dated Eat/Skip/Outside/Different overrides, retained meals at home, old serialized defaults and round-trip settings. Skipped meals reserve no time in the automatic day plan.
+
+Two app tests check category consistency and text contrast for all activity categories in every light/dark/system theme. Category labels, primary text and supporting text meet the 4.5:1 contrast threshold against their tested surfaces. UI checks cover recurring skips, weekday exceptions, dated changes, backup retention and direct activity navigation. A schema-5 fixture preserves the existing weekly menu and dated overrides while introducing Follow default.
+
+The earlier visual-system device suite contained 49 unique cases: 42 passed, five opt-in fixtures skipped, and two wake-alarm checks skipped without exact-alarm access. All three wake-alarm checks then passed in a separate permission-enabled run, giving 44 unique non-opt-in cases verified. The five opt-in fixtures were widget screenshots, day-planning screenshots, visual-system screenshots and two native installer checks. The visual-system fixture also passed separately and includes Paper, Charcoal, meal defaults, project progress, prayer entry, Calendar and 1.3× text on the 1080 × 2400 Pixel 7 emulator. The shared cards also appear in course schedules and the agenda widget. Quick-add quiz is in the toolbar so it does not cover activity cards.
 
 ## Day planning and Fajr alarms
 
@@ -43,7 +59,7 @@ Two UI checks enter an overnight routine, move one occurrence with a different d
 
 Three wake-alarm device checks verify the Clock backup intent, actual AlarmManager replacement/cancellation and stale-trigger rejection, and delivery of an exact alarm into the foreground ringing service. The real trigger reached maximum alarm-stream volume, exposed snooze/dismiss controls, scheduled the next daily alarm and stopped on dismiss. These three checks were rerun successfully after the final disabled-alarm/snooze safeguards. Emulator audio is disabled, so physical speaker loudness was not measured.
 
-The full ordinary suite has 45 unique cases: 41 passed and four intentionally opted out (widget screenshot fixture, day-planning screenshot fixture, and two native installer checks). The screenshot fixture is run separately for visual review. The Gradle progress display counts some skip events twice; the JUnit XML contains 45 cases with four skips and no failures.
+The earlier day-planning suite had 45 unique cases: 41 passed and four intentionally opted out (widget screenshot fixture, day-planning screenshot fixture, and two native installer checks). The Gradle progress display counts some skip events twice; the JUnit XML contains the unique-case count.
 
 ## Lab submission deadlines
 
@@ -131,12 +147,12 @@ The paths below are local build/delivery outputs and are excluded from the sourc
 - `artifacts/release/`: the development APK as `Stillday.apk`, generated `update.json`, and checksums for a manual release using the existing development key.
 - `artifacts/screenshots/`: Pixel 7 screenshots, including light/dark themes, large text, manual Semester 7 setup, independently dated semesters, and exercise/example entry.
 - `artifacts/test-results/`: XML results, build log, and lint report.
-- `app/schemas/`: exported Room schemas 1, 2, 3, 4 and 5.
+- `app/schemas/`: exported Room schemas 1, 2, 3, 4, 5, 6 and 7.
 
 ## Practical limits
 
 - Tests ran on an emulator, not a physical Pixel 7. Other Android API levels and OEM battery behavior were not exercised.
 - The widget entry activity was tested; manual launcher pinning was not automated.
 - Reminder scheduling, permission handling, and notification creation passed. Android's inexact alarms and battery policies can delay actual delivery; long-duration idle delivery was not measured.
-- The current database version is 5, with tested migrations from versions 1, 2, 3 and 4. Future upgrades must add and test explicit migrations; destructive migration is disabled.
+- The current database version is 7, with tested migrations from versions 1, 2, 3, 4, 5 and 6. Future upgrades must add and test explicit migrations; destructive migration is disabled.
 - Exam capacity warnings are estimates. They do not guarantee retention or sufficient preparation when the available time is too small.

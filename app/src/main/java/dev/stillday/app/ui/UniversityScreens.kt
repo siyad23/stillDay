@@ -24,6 +24,7 @@ import dev.stillday.domain.*
         if (state.data.semesters.isEmpty()) EmptyState("Add your first semester", "Start with the semester dates, then add your courses.")
         state.data.semesters.sortedBy { it.start }.forEach { semester ->
             QuietCard {
+                CategoryBadge(ActivityCategory.CLASS, if (today in semester.start..semester.end) "Current semester" else "Semester")
                 ItemRow(semester.title, "${dateLabel(semester.start)} – ${dateLabel(semester.end)}",
                     trailing = if (today in semester.start..semester.end) "Current" else null, onClick = { navigate("semester:${semester.id}") })
                 val courses = state.data.courses.filter { it.semesterId == semester.id }
@@ -43,19 +44,24 @@ import dev.stillday.domain.*
         SectionTitle("Courses", "Add course") { open(Forms.course(vm, semester.id)) }
         courses.forEach { course ->
             val attendance = Recurrence.attendance(course.id, state.data)
-            ItemRow(course.name, "${course.code} · ${course.typeLabel()}",
-                trailing = if (attendance.second > 0) "${attendance.first * 100 / attendance.second}%" else null,
+            ActivityCard(course.name, "${course.code} · ${course.typeLabel()}", ActivityCategory.CLASS,
+                status = if (attendance.second > 0) "${attendance.first * 100 / attendance.second}% attendance" else null,
                 onClick = { navigate("course:${course.id}") })
         }
         if (courses.isEmpty()) EmptyState("Add your courses", "Theory and lab courses can each have weekly or alternate-week class slots.")
         SectionTitle("Exam periods", "Add period") { open(Forms.period(vm, semester.id)) }
         state.data.periods.filter { it.semesterId == id }.forEach { period ->
             QuietCard {
-                ItemRow(period.name, "${dateLabel(period.start)} – ${dateLabel(period.end)}", onClick = { open(Forms.period(vm, id, period)) })
-                Text("Focus from ${dateLabel(period.start.date().minusDays(state.preferences.focusLeadDays.toLong()).toString())}", style = MaterialTheme.typography.bodyMedium)
+                ItemRow(period.name, "${dateLabel(period.start)} – ${dateLabel(period.end)}", category = ActivityCategory.DEADLINE, onClick = { navigate("exam-period:${period.id}") })
+                TextButton(onClick = { navigate("exam-period:${period.id}") }) { Text("Enter exam routine") }
+                Text(when (period.focusOverride) {
+                    FocusOverride.AUTO -> "Automatic focus from " + dateLabel(period.start.date().minusDays(state.preferences.focusLeadDays.toLong()).toString())
+                    FocusOverride.ON -> if (Recurrence.focus(vm.repository.today(), listOf(period), state.preferences).active) "Focus started manually" else "Focus ended"
+                    FocusOverride.OFF -> "Focus stopped manually"
+                }, style = MaterialTheme.typography.bodyMedium)
             }
         }
-        if (state.data.periods.none { it.semesterId == id }) EmptyState("Set Midsemester and Final dates", "Use the expected exam windows now. Add exact course exams and their syllabi from each course when the routine is published.")
+        if (state.data.periods.none { it.semesterId == id }) EmptyState("Set Midsemester and Final dates", "Use the expected exam windows now. Open each period to enter the detailed theory exam routine when it is published.")
     }
 }
 
@@ -90,19 +96,19 @@ import dev.stillday.domain.*
             1 -> {
                 val attendance = Recurrence.attendance(id, s)
                 QuietCard {
-                    Text("Attendance", style = MaterialTheme.typography.labelMedium)
+                    CategoryHeading(ActivityCategory.CLASS, "Attendance")
                     Text(if (attendance.second == 0) "Not recorded yet" else "${attendance.first * 100 / attendance.second}% · ${attendance.first}/${attendance.second}", style = MaterialTheme.typography.headlineSmall)
                     Text("Only recorded, non-cancelled classes count. Excused classes are excluded.", style = MaterialTheme.typography.bodyMedium)
                 }
                 SectionTitle("Recurring slots", "Add slot") { open(Forms.rule(vm, course)) }
                 s.rules.filter { it.courseId == id }.forEach { rule ->
-                    ItemRow("${java.time.DayOfWeek.of(rule.weekday).name.pretty()} · ${rule.time}", "${rule.durationMinutes} min · every ${rule.intervalWeeks} week(s)", onClick = { open(Forms.rule(vm, course, rule)) })
+                    ItemRow("${java.time.DayOfWeek.of(rule.weekday).name.pretty()} · ${rule.time}", "${rule.durationMinutes} min · every ${rule.intervalWeeks} week(s) · ${rule.location.ifBlank { "Room not set" }}", onClick = { open(Forms.rule(vm, course, rule)) })
                 }
                 SectionTitle(if (showHistory) "All class occurrences" else "Upcoming classes", if (showHistory) "Upcoming" else "History") { showHistory = !showHistory }
                 val occurrences = s.occurrences.filter { it.courseId == id && (showHistory || it.start.take(10) >= vm.repository.today().toString()) }.sortedBy { it.start }
                 occurrences.forEach { o ->
                     ItemRow("${dateLabel(o.start)} · ${timeLabel(o.start)}", when { o.cancelled -> "Cancelled"; Recurrence.suppressed(o, s) -> "Exam period · no class"; else -> "${o.location}${if (o.overridden) " · rescheduled" else ""}" },
-                        trailing = if (o.attendance != Attendance.UNMARKED) o.attendance.name.pretty() else null, onClick = { navigate("class:${o.id}") })
+                        trailing = if (o.attendance != Attendance.UNMARKED) o.attendance.name.pretty() else null, category = ActivityCategory.CLASS, onClick = { navigate("class:${o.id}") })
                 }
                 if (occurrences.isEmpty()) Text("Add a recurring slot to generate the semester's classes.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -110,7 +116,7 @@ import dev.stillday.domain.*
                 SectionTitle("Quizzes & exams", "Add") { onAssessment(id, null) }
                 s.assessments.filter { it.courseId == id }.sortedBy { Recurrence.assessmentDate(it, s) }.forEach { a ->
                     val coverage = s.coverage.filter { it.assessmentId == a.id }
-                    ItemRow(a.title, "${a.at?.let { "${dateLabel(it)} · ${timeLabel(it)}" } ?: "Provisional · ${Recurrence.assessmentDate(a, s)?.let { dateLabel(it.toString()) } ?: "date not set"}"}\n${coverage.count { it.checked }}/${coverage.size} syllabus items complete", onClick = { navigate("assessment:${a.id}") })
+                    ItemRow(a.title, "${a.at?.let { "${dateLabel(it)} · ${timeLabel(it)}" } ?: "Provisional · ${Recurrence.assessmentDate(a, s)?.let { dateLabel(it.toString()) } ?: "date not set"}"}\n${coverage.count { it.checked }}/${coverage.size} syllabus items complete", category = ActivityCategory.DEADLINE, onClick = { navigate("assessment:${a.id}") })
                 }
                 if (s.assessments.none { it.courseId == id }) EmptyState("No assessments yet", "Add a quiz now, or an exam with provisional dates from the semester's exam period.")
             }
@@ -123,7 +129,7 @@ import dev.stillday.domain.*
                 }
                 SectionTitle("Assignments", "Add") { open(Forms.assignment(vm, id)) }
                 s.assignments.filter { it.courseId == id }.sortedBy { it.dueAt }.forEach { a ->
-                    ItemRow(a.title, "Due ${dateLabel(a.dueAt)} · ${timeLabel(a.dueAt)}", if (a.completed) "Submitted" else null) { navigate("assignment:${a.id}") }
+                    ItemRow(a.title, "Due ${dateLabel(a.dueAt)} · ${timeLabel(a.dueAt)}", if (a.completed) "Submitted" else null, category = ActivityCategory.DEADLINE) { navigate("assignment:${a.id}") }
                 }
                 val occurrenceIds = s.occurrences.filter { it.courseId == id }.map { it.id }.toSet()
                 val experiments = s.experiments.filter { it.occurrenceId in occurrenceIds }
@@ -153,6 +159,7 @@ import dev.stillday.domain.*
                 when (kind) { ChapterItemKind.TOPIC -> "Add topic"; ChapterItemKind.EXERCISE -> "Add exercise"; ChapterItemKind.EXAMPLE -> "Add example" }) { open(Forms.topic(vm, chapter, kind = kind)) }
             val items = state.data.topics.filter { it.chapterId == id && !it.archived && it.kind == kind }
             items.forEach { topic -> QuietCard {
+            CategoryBadge(ActivityCategory.STUDY, if (topic.learned) "Review" else "New learning")
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(topic.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 IconButton(onClick = { open(Forms.topic(vm, chapter, topic)) }) { Icon(Icons.Outlined.Edit, "Edit ${topic.title}") }
@@ -188,6 +195,7 @@ import dev.stillday.domain.*
     val s = state.data
     val a = s.assessments.find { it.id == id } ?: return
     Page {
+        CategoryBadge(ActivityCategory.DEADLINE, a.kind.name.pretty())
         Text(a.title, style = MaterialTheme.typography.headlineLarge)
         Text(a.at?.let { "${dateLabel(it)} · ${timeLabel(it)}" } ?: "Routine pending · provisional ${Recurrence.assessmentDate(a, s)?.let { dateLabel(it.toString()) }.orEmpty()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (a.location.isNotEmpty()) Text(a.location)
@@ -195,6 +203,11 @@ import dev.stillday.domain.*
         SectionTitle("Syllabus checklist")
         Text("These checkboxes track assessment preparation. Understanding and review timing come from recorded study sessions.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val coverage = s.coverage.filter { it.assessmentId == id }
+        if (coverage.isNotEmpty()) QuietCard {
+            Text("${coverage.count { it.checked }} of ${coverage.size} prepared", style = MaterialTheme.typography.titleMedium)
+            LinearProgressIndicator(progress = { coverage.count { it.checked }.toFloat() / coverage.size }, modifier = Modifier.fillMaxWidth(),
+                color = activityPalette(ActivityCategory.STUDY, MaterialTheme.colorScheme).accent)
+        }
         val ids = coverage.map { it.topicId }
         s.chapters.filter { it.courseId == a.courseId }.forEach { chapter ->
             val topics = s.topics.filter { it.chapterId == chapter.id && it.id in ids }
@@ -215,6 +228,7 @@ import dev.stillday.domain.*
     val o = s.occurrences.find { it.id == id } ?: return
     val course = s.courses.find { it.id == o.courseId } ?: return
     Page {
+        CategoryBadge(ActivityCategory.CLASS, if (course.type == CourseType.LAB) "Lab" else "Class")
         Text(course.name, style = MaterialTheme.typography.headlineLarge)
         Text("${dateLabel(o.start)} · ${timeLabel(o.start)}–${timeLabel(o.end)}", style = MaterialTheme.typography.titleLarge)
         Text(o.location.ifBlank { "Location not set" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -251,6 +265,7 @@ import dev.stillday.domain.*
     val title = if (project) p!!.title else a!!.title
     val due = if (project) p!!.dueDate else a!!.dueAt
     Page {
+        CategoryBadge(if (project) ActivityCategory.PROJECT else ActivityCategory.DEADLINE, if (project) "Project" else "Assignment")
         Text(title, style = MaterialTheme.typography.headlineLarge)
         if (project) {
             val course = s.courses.find { it.id == p!!.courseId }
@@ -270,7 +285,7 @@ import dev.stillday.domain.*
         }
         SectionTitle("Milestones", "Add") { open(Forms.milestone(vm, id, project, due)) }
         s.milestones.filter { it.ownerId == id && it.project == project }.forEach { milestone -> QuietCard {
-            ItemRow(milestone.title, "Finish ${dateLabel(milestone.dueDate)}", onClick = { open(Forms.milestone(vm, id, project, due, milestone)) })
+            ItemRow(milestone.title, "Finish ${dateLabel(milestone.dueDate)}", category = if (project) ActivityCategory.PROJECT else ActivityCategory.DEADLINE, onClick = { open(Forms.milestone(vm, id, project, due, milestone)) })
             s.todos.filter { it.milestoneId == milestone.id }.forEach { todo -> Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(todo.completed, { checked -> vm.edit("TODO updated") { it.copy(todos = it.todos.map { row -> if (row.id == todo.id) row.copy(completed = checked) else row }) } },
                     modifier = Modifier.semantics { contentDescription = "Complete ${todo.title}" })

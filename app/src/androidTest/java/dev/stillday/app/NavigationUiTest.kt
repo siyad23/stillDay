@@ -85,11 +85,11 @@ class NavigationUiTest {
         val tomorrow = repository.today().plusDays(1)
         rule.onNodeWithText("Date").performTextReplacement(DisplayDates.format(tomorrow))
         Espresso.closeSoftKeyboard()
-        rule.onNodeWithText("09:00 · Circuits Lab").performScrollTo().performClick()
+        rule.onNode(hasText("09:00") and hasText("Circuits Lab")).performScrollTo().performClick()
         back()
         rule.onNodeWithText("Date").assertTextContains(DisplayDates.format(tomorrow))
         back()
-        rule.onNodeWithText("Your day, made simpler.").assertExists()
+        rule.onNodeWithText("Today at a glance.").assertExists()
         rule.onNodeWithContentDescription("Open calendar").assertExists()
     }
 

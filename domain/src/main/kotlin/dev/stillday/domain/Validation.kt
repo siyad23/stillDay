@@ -16,7 +16,10 @@ object Validation {
         require(p.eventLeadMinutes in 0..1440 && p.deadlineLeadHours in 0..168)
         ZoneId.of(p.timezone)
         LocalTime.parse(p.morningTime)
+        p.manualStudyDate?.date()
+        require(p.manualStudyTopicIds.size <= 10000 && p.manualStudyTopicIds.all { it.isNotBlank() } && p.manualStudyTopicIds.distinct().size == p.manualStudyTopicIds.size)
         require(p.studyPercent in 0..100 && p.mealMinutes in 1..180 && p.prayerMinutes in 1..180)
+        require(p.skippedMeals.all { it in listOf("Breakfast", "Lunch", "Dinner") }) { "Choose a valid meal to skip." }
         require(p.sleepMinutes in 60..720 && p.wakeBeforeFajrMinutes in 0..120)
         listOf(p.breakfastTime, p.lunchTime, p.dinnerTime, p.fallbackWakeTime).forEach { LocalTime.parse(it) }
         require(p.prayerTimes.isEmpty() || p.prayerTimes.keys == Prayer.entries.map { it.name }.toSet()) { "Set all five prayer times." }

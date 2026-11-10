@@ -1,6 +1,7 @@
 package dev.stillday.app.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
@@ -43,8 +44,8 @@ fun Experiment.workSummary(): String = "Prework: ${prework.name.pretty()}" +
 fun minutesLabel(minutes: Int): String = if (minutes >= 60) "${minutes / 60}h${if (minutes % 60 != 0) " ${minutes % 60}m" else ""}" else "${minutes}m"
 
 @Composable fun Page(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 100.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp), content = content)
 }
 
 @Composable fun SectionTitle(title: String, action: String? = null, onAction: () -> Unit = {}) {
@@ -55,19 +56,26 @@ fun minutesLabel(minutes: Int): String = if (minutes >= 60) "${minutes / 60}h${i
 }
 
 @Composable fun QuietCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
     }
 }
 
-@Composable fun ItemRow(title: String, subtitle: String = "", trailing: String? = null, onClick: (() -> Unit)? = null) {
+@Composable fun ItemRow(title: String, subtitle: String = "", trailing: String? = null, category: ActivityCategory? = null, onClick: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        category?.let { kind ->
+            val palette = activityPalette(kind, MaterialTheme.colorScheme)
+            Surface(color = palette.badge, shape = RoundedCornerShape(12.dp)) { Icon(kind.icon, null, Modifier.padding(9.dp).size(20.dp), tint = palette.accent) }
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (trailing != null) Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        if (trailing != null) Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp)) {
+            Text(trailing, Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+        }
         if (onClick != null) Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

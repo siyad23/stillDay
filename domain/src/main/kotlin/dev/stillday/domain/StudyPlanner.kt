@@ -1,6 +1,7 @@
 package dev.stillday.domain
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.max
@@ -12,16 +13,22 @@ object StudyPlanner {
 
     fun difficult(topic: Topic): Boolean = topic.difficulty >= 4 || topic.lastRating in listOf(Rating.AGAIN, Rating.HARD)
 
-    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences, budgetOverride: Int? = null): DailyPlan {
+    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences, budgetOverride: Int? = null, now: LocalDateTime? = null): DailyPlan {
         val focus = Recurrence.focus(date, data.periods, preferences).active
+        val manual = preferences.manualStudyDate == date.toString()
+        val manualIds = preferences.manualStudyTopicIds.toSet()
+        val examTarget = ExamPlanning.target(date, data, preferences, now ?: date.atStartOfDay())
         val budget = budgetOverride?.coerceAtLeast(0) ?: if (focus) preferences.focusMinutes else preferences.normalMinutes
         val completedToday = data.reviews.filter { it.date == date.toString() }
         val spent = completedToday.sumOf { it.minutes }
         val remaining = (budget - spent).coerceAtLeast(0)
         var hardRemaining = ((budget * preferences.difficultPercent / 100) - completedToday.filter { it.difficult }.sumOf { it.minutes }).coerceAtLeast(0)
+        if (manual && !preferences.manualStudyHardCap) hardRemaining = Int.MAX_VALUE
         val chapterMap = data.chapters.associateBy { it.id }
         val courses = data.courses.associateBy { it.id }
-        val assessmentMap = data.assessments.associateBy { it.id }
+        val validAssessments = data.assessments.filter { (it.kind == AssessmentKind.QUIZ || courses[it.courseId]?.type == CourseType.THEORY) &&
+            (it.at == null || it.at.dateTime() > (now ?: date.atStartOfDay())) }
+        val assessmentMap = validAssessments.associateBy { it.id }
         val coverageByTopic = data.coverage.groupBy { it.topicId }
         val plansByTopic = data.plans.groupBy { it.topicId }
         val completedIds = completedToday.map { it.topicId }.toSet()
@@ -29,16 +36,23 @@ object StudyPlanner {
         val candidates = data.topics.filter { !it.archived && it.id !in completedIds && it.id !in skippedIds }.mapNotNull { topic ->
             val chapter = chapterMap[topic.chapterId] ?: return@mapNotNull null
             val course = courses[chapter.courseId] ?: return@mapNotNull null
+            if (focus && course.type != CourseType.THEORY) return@mapNotNull null
+            if (manual && topic.id !in manualIds) return@mapNotNull null
+            if (!manual && focus && topic.id !in examTarget.topicIds) return@mapNotNull null
             val semester = data.semesters.find { it.id == course.semesterId } ?: return@mapNotNull null
-            if (date.isBefore(semester.start.date()) || date.isAfter(semester.end.date())) return@mapNotNull null
+            val focusSemester = focus && examTarget.periods.any { it.semesterId == semester.id }
+            if (!focusSemester && (date.isBefore(semester.start.date()) || date.isAfter(semester.end.date()))) return@mapNotNull null
             val deadlines = coverageByTopic[topic.id].orEmpty().mapNotNull { selection ->
                 assessmentMap[selection.assessmentId]?.let { Recurrence.assessmentDate(it, data) }
             }.filter { !it.isBefore(date) }
-            val deadline = deadlines.minOrNull()
+            val focusedDeadline = examTarget.exams.filter { it.courseId == course.id }.mapNotNull { it.at?.dateTime()?.toLocalDate() }.minOrNull()
+            val deadline = if (focus && !manual) focusedDeadline ?: deadlines.minOrNull() else deadlines.minOrNull()
             val prepDate = deadline?.minusDays(2)
             val due = topic.nextReview?.date()
             val kind = when {
                 !topic.learned -> StudyKind.NEW
+                manual -> StudyKind.REVIEW
+                focus && examTarget.exams.isNotEmpty() -> StudyKind.EXAM_PREP
                 due == null || !due.isAfter(date) -> StudyKind.REVIEW
                 prepDate != null && !date.isBefore(prepDate) && (topic.lastStudied == null || topic.lastStudied.date().isBefore(prepDate)) -> StudyKind.EXAM_PREP
                 else -> return@mapNotNull null
@@ -48,7 +62,7 @@ object StudyPlanner {
             val deferrals = plansByTopic[topic.id].orEmpty().filter { !it.completed && !it.skipped &&
                 it.date.date().isBefore(date) && (topic.lastStudied == null || it.date > topic.lastStudied) }.map { it.date }.distinct().size
             val overdue = if (due != null) max(0, ChronoUnit.DAYS.between(due, date)).toDouble() / max(1, topic.intervalDays) else 0.0
-            val reason = when (kind) {
+            val reason = if (manual) "Chosen by you · ${if (topic.learned) "review" else "new learning"}" else when (kind) {
                 StudyKind.NEW -> "${if (topic.isProblem) "Solve ${if (topic.kind == ChapterItemKind.EXERCISE) "exercise" else "example problem"}" else "New topic"}${deadline?.let { " · assessment ${ChronoUnit.DAYS.between(date, it)}d away" } ?: ""}"
                 StudyKind.EXAM_PREP -> "Preparation review · assessment ${ChronoUnit.DAYS.between(date, deadline)}d away"
                 StudyKind.REVIEW -> if (due != null && due.isBefore(date)) "Review · ${ChronoUnit.DAYS.between(due, date)}d overdue" else "Review due today"
@@ -98,10 +112,14 @@ object StudyPlanner {
             if (!take(newPool, available) && !take(reviewPool, available)) break
         }
         val warnings = mutableListOf<String>()
+        if (focus && !manual && examTarget.exams.isNotEmpty()) warnings += "Next exam: ${examTarget.exams.joinToString { it.title }}. Other theory papers wait until it starts."
+        if (focus && !manual && examTarget.missingSyllabus) warnings += "Next exam syllabus is not set; using all topics in its theory course."
+        if (focus && !manual && examTarget.exams.isEmpty()) warnings += "Detailed routine pending or all entered papers have started. Preparing theory subjects in the active semester."
+        if (manual && candidates.isEmpty() && manualIds.isNotEmpty()) warnings += "Your selected topics are completed, skipped, archived or unavailable today. Edit your selection or restore the automatic plan."
         val deferred = (newPool + reviewPool).sumOf { it.minutes }
         if ((newPool + reviewPool).any { difficult(it.topic) } && hardRemaining < 20) warnings += "Difficult work is capped at ${preferences.difficultPercent}% of today's budget. Remaining topics stay in the backlog."
         if (deferred > 0) warnings += "$deferred min deferred; your daily limit stays unchanged."
-        val upcoming = data.assessments.mapNotNull { a -> Recurrence.assessmentDate(a, data)?.let { a to it } }
+        val upcoming = validAssessments.filter { !focus || courses[it.courseId]?.type == CourseType.THEORY }.mapNotNull { a -> Recurrence.assessmentDate(a, data)?.let { a to it } }
             .filter { !it.second.isBefore(date) }.sortedBy { it.second }
         upcoming.forEach { (assessment, deadline) ->
             val ids = data.coverage.filter { it.assessmentId == assessment.id }.map { it.topicId }.toSet()

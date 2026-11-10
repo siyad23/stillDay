@@ -29,7 +29,7 @@ object Recurrence {
                 } else if (!day.isBefore(from)) {
                     val at = day.atTime(LocalTime.parse(rule.time))
                     result += Occurrence(id, course.id, rule.id, day.toString(), at.toString(),
-                        at.plusMinutes(rule.durationMinutes.toLong()).toString(), course.location)
+                        at.plusMinutes(rule.durationMinutes.toLong()).toString(), rule.location)
                 }
             }
             day = day.plusWeeks(1)
@@ -72,7 +72,11 @@ object Recurrence {
     }
 
     fun focus(date: LocalDate, periods: List<ExamPeriod>, preferences: Preferences): FocusState {
-        val active = periods.filter { !date.isBefore(it.start.date().minusDays(preferences.focusLeadDays.toLong())) && !date.isAfter(it.end.date()) }
+        val active = periods.filter { !date.isAfter(it.end.date()) && when (it.focusOverride) {
+            FocusOverride.OFF -> false
+            FocusOverride.ON -> true
+            FocusOverride.AUTO -> !date.isBefore(it.start.date().minusDays(preferences.focusLeadDays.toLong()))
+        } }
         return FocusState(active.isNotEmpty(), active)
     }
 
@@ -130,15 +134,25 @@ object LifeResolver {
             val override = data.mealOverrides.find { it.date == date.toString() && it.slot == slot }
             val time = override?.time ?: template?.time ?: defaultTime
             val location = resolveLocation(date.atTime(LocalTime.parse(time)), data)
-            val description = when {
-                override?.action == MealAction.SKIP -> "Not eating"
-                override?.action == MealAction.OUTSIDE -> "Eating outside"
-                override?.action == MealAction.DIFFERENT -> override.food
+            val normallySkipped = when (template?.defaultPlan) {
+                MealDefault.SKIP -> true
+                MealDefault.EAT -> false
+                else -> slot in preferences.skippedMeals
+            }
+            val skipped = override?.let { it.action == MealAction.SKIP } ?: normallySkipped
+            val usual = when {
                 location.place == Place.UNIVERSITY -> template?.food ?: "Set your hall menu"
                 location.place == Place.HOME -> "Home meal · flexible"
                 else -> "${location.name} · meal unplanned"
             }
-            ResolvedMeal(slot, time, description, location.inferred && override == null, preferences.mealMinutes, override?.action == MealAction.SKIP)
+            val description = when {
+                override?.action == MealAction.SKIP -> "Not eating"
+                override?.action == MealAction.OUTSIDE -> "Eating outside"
+                override?.action == MealAction.DIFFERENT -> override.food
+                skipped -> if (template?.defaultPlan == MealDefault.SKIP) "Skipped on this weekday" else "Skipped by default"
+                else -> usual.ifBlank { "Hall meal · menu not set" }
+            }
+            ResolvedMeal(slot, time, description, location.inferred && override == null, preferences.mealMinutes, skipped)
         }
     }
 

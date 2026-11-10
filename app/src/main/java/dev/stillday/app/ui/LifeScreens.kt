@@ -46,38 +46,40 @@ import java.time.DayOfWeek
             s.occurrences.filter { it.start.take(10) == day.toString() }.forEach { o ->
                 val suppressed = Recurrence.suppressed(o, s)
                 events += CalendarItem(timeLabel(o.start), s.courses.find { it.id == o.courseId }?.name ?: "Class",
-                    when { o.cancelled -> "Cancelled"; suppressed -> "Exam period · no class"; else -> "${o.location}${if (o.overridden) " · rescheduled" else ""}" }, "class:${o.id}")
+                    when { o.cancelled -> "Cancelled"; suppressed -> "Exam period · no class"; else -> "${o.location}${if (o.overridden) " · rescheduled" else ""}" }, "class:${o.id}",
+                    if (o.cancelled || suppressed) ActivityCategory.REST else ActivityCategory.CLASS, timeLabel(o.end))
             }
             s.assessments.filter { Recurrence.assessmentDate(it, s) == day }.forEach { a ->
-                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, if (a.at == null) "Provisional date · routine pending" else a.location, "assessment:${a.id}")
+                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, if (a.at == null) "Provisional date · routine pending" else a.location, "assessment:${a.id}", ActivityCategory.DEADLINE)
             }
             s.travel.filter { it.departure.take(10) == day.toString() }.forEach { t -> events += CalendarItem(timeLabel(t.departure),
-                "Travel to ${if (t.destination == Place.OTHER) t.destinationName else t.destination.name.pretty()}", "Arrive ${dateLabel(t.arrival)} ${timeLabel(t.arrival)}") }
-            s.assignments.filter { it.dueAt.take(10) == day.toString() && !it.completed }.forEach { a -> events += CalendarItem(timeLabel(a.dueAt), a.title, "Assignment submission", "assignment:${a.id}") }
-            s.projects.filter { it.dueDate == day.toString() && it.active }.forEach { p -> events += CalendarItem("23:59", p.title, if (p.courseId == null) "Project finish date" else "Lab project finish date", "project:${p.id}") }
+                "Travel to ${if (t.destination == Place.OTHER) t.destinationName else t.destination.name.pretty()}", "Arrive ${dateLabel(t.arrival)} ${timeLabel(t.arrival)}", category = ActivityCategory.TRAVEL) }
+            s.assignments.filter { it.dueAt.take(10) == day.toString() && !it.completed }.forEach { a -> events += CalendarItem(timeLabel(a.dueAt), a.title, "Assignment submission", "assignment:${a.id}", ActivityCategory.DEADLINE) }
+            s.projects.filter { it.dueDate == day.toString() && it.active }.forEach { p -> events += CalendarItem("23:59", p.title, if (p.courseId == null) "Project finish date" else "Lab project finish date", "project:${p.id}", ActivityCategory.DEADLINE) }
             LabSubmissions.pending(s).filter { it.dueAt?.toLocalDate() == day }.forEach { item ->
-                events += CalendarItem(timeLabel(item.dueAt.toString()), item.title, "Submission deadline", item.route)
+                events += CalendarItem(timeLabel(item.dueAt.toString()), item.title, "Submission deadline", item.route, ActivityCategory.DEADLINE)
             }
-            s.milestones.filter { it.dueDate == day.toString() }.forEach { m -> events += CalendarItem("23:59", m.title, "Milestone finish date", "${if (m.project) "project" else "assignment"}:${m.ownerId}") }
+            s.milestones.filter { it.dueDate == day.toString() }.forEach { m -> events += CalendarItem("23:59", m.title, "Milestone finish date", "${if (m.project) "project" else "assignment"}:${m.ownerId}", ActivityCategory.DEADLINE) }
             s.routineOccurrences.filter { it.date == day.toString() && !it.skipped }.forEach { r -> events += CalendarItem(r.time,
                 s.routines.find { it.id == r.routineId }?.title ?: "Routine", "Until ${timeLabel(ActivityTiming.end(r.date, r.time, r.durationMinutes).toString())} · ${if (r.completed) "Completed" else "Routine"}") }
             DayPlanner.build(day, s, state.preferences).blocks.filter { it.kind !in listOf(DayBlockKind.CLASS, DayBlockKind.LAB, DayBlockKind.ASSESSMENT,
-                DayBlockKind.ROUTINE, DayBlockKind.TRAVEL, DayBlockKind.REST) }.forEach { block ->
-                events += CalendarItem(timeLabel(block.start.toString()), block.title, "${blockTime(block)} · ${block.detail}", block.route?.takeUnless { it == "Today" })
+                DayBlockKind.ROUTINE, DayBlockKind.TRAVEL, DayBlockKind.REST, DayBlockKind.PREPARATION) }.forEach { block ->
+                events += CalendarItem(timeLabel(block.start.toString()), block.title, block.detail, block.route?.takeUnless { it == "Today" }, block.kind.category(), timeLabel(block.end.toString()))
             }
             if (Recurrence.focus(day, s.periods, state.preferences).active) Text("Exam focus · assignment and project suggestions paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             if (events.isEmpty()) Text("No scheduled activities", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             events.sortedBy { it.time }.forEach { event ->
-                ItemRow("${event.time} · ${event.title}", event.subtitle, onClick = event.route?.let { { navigate(it) } })
+                ActivityCard(event.title, event.subtitle, event.category, time = event.time, endTime = event.endTime, onClick = event.route?.let { { navigate(it) } })
             }
             if (!week) {
                 SectionTitle("Meals", "Override") { open(Forms.mealOverride(vm, day.toString())) }
-                LifeResolver.meals(day, s, state.preferences).forEach { meal -> ItemRow("${meal.time} · ${meal.slot}", "${meal.description} · ${meal.durationMinutes}m", onClick = { open(Forms.mealOverride(vm, day.toString(), meal.slot)) }) }
+                LifeResolver.meals(day, s, state.preferences).forEach { meal -> ItemRow("${meal.time} · ${meal.slot}", meal.description, if (meal.skipped) "Skipped" else "${meal.durationMinutes}m", category = ActivityCategory.MEAL, onClick = { open(Forms.mealOverride(vm, day.toString(), meal.slot)) }) }
             }
         }
     }
 }
-private data class CalendarItem(val time: String, val title: String, val subtitle: String, val route: String? = null)
+private data class CalendarItem(val time: String, val title: String, val subtitle: String, val route: String? = null,
+    val category: ActivityCategory = ActivityCategory.LIFE, val endTime: String? = null)
 
 @Composable fun LifeScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     var savedTab by rememberSaveable { mutableStateOf(0) }
@@ -93,19 +95,25 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
         }
         when (tab) {
             0 -> {
+                MealDefaults(vm, state.preferences)
                 SectionTitle("Meal timing", "Edit times") { open(Forms.mealTiming(vm)) }
                 Text("${state.preferences.mealMinutes} minutes per meal · weekly times below override your defaults.", style = MaterialTheme.typography.bodyMedium)
                 SectionTitle("Weekly hall menu")
                 ChoiceField("Day", weekday.toString(), weekdayChoices) { weekday = it.toInt() }
                 listOf("Breakfast", "Lunch", "Dinner").forEach { slot ->
                     val meal = s.meals.find { it.weekday == weekday && it.slot == slot }
-                    QuietCard { ItemRow(slot, meal?.let { "${it.time} · ${it.food}" } ?: "Not configured", onClick = { open(Forms.meal(vm, weekday, slot, meal)) }) }
+                    val skipped = when (meal?.defaultPlan) { MealDefault.SKIP -> true; MealDefault.EAT -> false; else -> slot in state.preferences.skippedMeals }
+                    ActivityCard(slot, if (skipped) "Skipped every ${DayOfWeek.of(weekday).name.pretty()}" else meal?.food?.ifBlank { "Menu not set" } ?: "Set your hall menu",
+                        if (skipped) ActivityCategory.REST else ActivityCategory.MEAL, time = meal?.time,
+                        badge = if (meal != null && meal.defaultPlan != MealDefault.FOLLOW_DEFAULT) "Weekday exception" else "Weekly meal",
+                        status = if (skipped) "Skipped" else null, onClick = { open(Forms.meal(vm, weekday, slot, meal)) })
                 }
                 SectionTitle("Meal overrides", "Add") { open(Forms.mealOverride(vm)) }
                 s.mealOverrides.sortedByDescending { it.date }.forEach { meal ->
                     QuietCard {
                         Text("${dateLabel(meal.date)} · ${meal.slot}", style = MaterialTheme.typography.titleMedium)
-                        Text(when (meal.action) { MealAction.SKIP -> "Not eating"; MealAction.OUTSIDE -> "Eating outside"; MealAction.DIFFERENT -> meal.food })
+                        CategoryBadge(ActivityCategory.MEAL, "One day only")
+                        Text(when (meal.action) { MealAction.SKIP -> "Not eating"; MealAction.OUTSIDE -> "Eating outside"; MealAction.DIFFERENT -> meal.food; MealAction.EAT -> "Eating as usual" })
                         TextButton(onClick = { vm.edit("Override removed") { it.copy(mealOverrides = it.mealOverrides.filterNot { row -> row.id == meal.id }) } }) { Text("Use location-based meal") }
                     }
                 }
@@ -123,7 +131,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
                     val back = s.travel.find { it.tripId == trip.tripId && it.isReturn }
                     QuietCard {
                         ItemRow("${trip.origin.name.pretty()} → ${if (trip.destination == Place.OTHER) trip.destinationName else trip.destination.name.pretty()}",
-                            "${dateLabel(trip.departure)} ${timeLabel(trip.departure)} → ${dateLabel(trip.arrival)} ${timeLabel(trip.arrival)}", onClick = { open(Forms.travel(vm, trip)) })
+                            "${dateLabel(trip.departure)} ${timeLabel(trip.departure)} → ${dateLabel(trip.arrival)} ${timeLabel(trip.arrival)}", category = ActivityCategory.TRAVEL, onClick = { open(Forms.travel(vm, trip)) })
                         Text(back?.let { "Return ${dateLabel(it.departure)} ${timeLabel(it.departure)} · arrive ${timeLabel(it.arrival)}" }
                             ?: if (trip.destination == Place.HOME) "One way · Monday return assumed" else "One way", style = MaterialTheme.typography.bodyMedium)
                         TextButton(onClick = { deleteTravel = trip }) { Text("Remove trip") }
@@ -134,7 +142,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
             2 -> {
                 SectionTitle("Recurring & one-off", "Add routine") { open(Forms.routine(vm)) }
                 s.routines.forEach { routine -> QuietCard {
-                    ItemRow(routine.title, "${routine.frequency.name.pretty()} · ${routine.time}–${timeLabel(ActivityTiming.end(routine.start, routine.time, routine.durationMinutes).toString())} · ${routine.durationMinutes}m\n${dateLabel(routine.start)} – ${dateLabel(routine.end)}", onClick = { expandedRoutine = if (expandedRoutine == routine.id) null else routine.id })
+                    ItemRow(routine.title, "${routine.frequency.name.pretty()} · ${routine.time}–${timeLabel(ActivityTiming.end(routine.start, routine.time, routine.durationMinutes).toString())} · ${routine.durationMinutes}m\n${dateLabel(routine.start)} – ${dateLabel(routine.end)}", category = ActivityCategory.LIFE, onClick = { expandedRoutine = if (expandedRoutine == routine.id) null else routine.id })
                     TextButton(onClick = { open(Forms.routine(vm, routine)) }) { Text("Edit routine") }
                     if (expandedRoutine == routine.id) {
                         s.routineOccurrences.filter { it.routineId == routine.id && it.date >= vm.repository.today().minusWeeks(1).toString() }.sortedBy { it.date }.take(30).forEach { row ->
@@ -196,10 +204,11 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
     val completed = todos.count { it.completed }
     val next = milestones.firstOrNull { milestone -> data.todos.none { it.milestoneId == milestone.id } || data.todos.any { it.milestoneId == milestone.id && !it.completed } }
     QuietCard {
-        Text(if (course == null) "Personal project" else "Lab project · ${course.name}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        CategoryBadge(ActivityCategory.PROJECT, if (course == null) "Personal project" else "Lab project")
+        course?.let { Text(it.name, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         ItemRow(project.title, "Finish ${dateLabel(project.dueDate)}", if (project.dueDate.date() < today && completed < todos.size) "Overdue" else null,
             onClick = { navigate("project:${project.id}") })
-        if (todos.isNotEmpty()) LinearProgressIndicator(progress = { completed.toFloat() / todos.size }, modifier = Modifier.fillMaxWidth())
+        if (todos.isNotEmpty()) LinearProgressIndicator(progress = { completed.toFloat() / todos.size }, modifier = Modifier.fillMaxWidth(), color = activityPalette(ActivityCategory.PROJECT, MaterialTheme.colorScheme).accent)
         Text("$completed/${todos.size} tasks complete · ${milestones.size} milestones", style = MaterialTheme.typography.bodyMedium)
         next?.let { Text("Next: ${it.title} · ${dateLabel(it.dueDate)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         Row(verticalAlignment = Alignment.CenterVertically) {

@@ -24,13 +24,13 @@ import java.time.LocalDate
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-private data class AssessmentRequest(val courseId: String? = null, val assessment: Assessment? = null)
+private data class AssessmentRequest(val courseId: String? = null, val assessment: Assessment? = null, val periodId: String? = null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false, initialRoute: String? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
     val destination = initialRoute?.takeIf { it in listOf("Today", "Projects", "Calendar", "University", "Life", "Planning", "Settings") ||
-        it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") }
+        it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") || it.startsWith("exam-period:") }
     var navigation by rememberSaveable(stateSaver = Saver<PlannerNavigation, String>(
         save = { Json.encodeToString(it) }, restore = { runCatching { Json.decodeFromString<PlannerNavigation>(it) }.getOrNull() })) {
         mutableStateOf(PlannerNavigation.start(if (openUpdates) "Settings" else destination))
@@ -63,11 +63,12 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                     containerColor = MaterialTheme.colorScheme.background,
                     snackbarHost = { SnackbarHost(snack) },
                     topBar = {
-                        TopAppBar(title = { Text(if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
+                        TopAppBar(title = { Text(if (route.startsWith("exam-period:")) "Exam routine" else if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
                             style = MaterialTheme.typography.titleLarge) },
                             navigationIcon = { if (navigation.stack.size > 1) IconButton(onClick = { navigation = navigation.back() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                             actions = {
                                 if (route == "Today") IconButton(onClick = { navigate("Calendar") }) { Icon(Icons.Outlined.CalendarMonth, "Open calendar") }
+                                if (route in listOf("Today", "Calendar")) IconButton(onClick = { assessment = AssessmentRequest() }) { Icon(Icons.Outlined.Add, "Quick add quiz") }
                                 IconButton(onClick = { navigate("Settings") }) { Icon(Icons.Outlined.Tune, "Settings") }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
@@ -80,10 +81,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                             }
                         }
                     },
-                    floatingActionButton = {
-                        if (route in listOf("Today", "Calendar")) FloatingActionButton(onClick = { assessment = AssessmentRequest() },
-                            containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Icon(Icons.Outlined.Add, "Quick add quiz") }
-                    }
+                    floatingActionButton = {}
                 ) { padding ->
                     Box(Modifier.padding(padding)) {
                         val open: (FormSpec) -> Unit = { form = it }
@@ -99,6 +97,8 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                                 else vm.preferences { it.copy(notifications = true) }
                             })
                             route.startsWith("semester:") -> SemesterScreen(vm, state, route.substringAfter(':'), open, navigate)
+                            route.startsWith("exam-period:") -> ExamRoutineScreen(vm, state, route.substringAfter(':'), open,
+                                onAssessment = { id, old -> assessment = AssessmentRequest(id, old, route.substringAfter(':')) })
                             route.startsWith("course:") -> CourseScreen(vm, state, route.substringAfter(':'), open, navigate,
                                 onAssessment = { id, old -> assessment = AssessmentRequest(id, old) })
                             route.startsWith("chapter:") -> ChapterScreen(vm, state, route.substringAfter(':'), open, { chapterStudy = it })
@@ -111,7 +111,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                 }
             }
             form?.let { FormEditor(it) { form = null } }
-            assessment?.let { request -> AssessmentEditor(vm, request.courseId, request.assessment) { assessment = null } }
+            assessment?.let { request -> AssessmentEditor(vm, request.courseId, request.assessment, request.periodId) { assessment = null } }
             study?.let { item -> StudyDialog(vm, item) { study = null } }
             chapterStudy?.let { ChapterStudyDialog(vm, state, it) { chapterStudy = null } }
             if (state.ready && state.preferences.onboardingComplete) UpdateHost(vm.updates, automatic = !state.preferences.demoData, openUpdates = openUpdates)

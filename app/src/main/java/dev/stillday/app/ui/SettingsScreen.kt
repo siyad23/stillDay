@@ -10,10 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import dev.stillday.app.PlannerViewModel
 import dev.stillday.app.data.AppState
 import dev.stillday.app.data.plannerJson
+import dev.stillday.app.data.decodePlannerBackup
 import dev.stillday.domain.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -45,9 +47,9 @@ import java.time.ZoneId
                     output.toString("UTF-8")
                 } ?: error("Couldn't open backup.")
             }
-            val backup = plannerJson.decodeFromString<Backup>(text)
+            val backup = decodePlannerBackup(text)
             Validation.backup(backup)
-            importSummary = "${backup.data.semesters.size} semesters, ${backup.data.courses.size} courses and ${backup.data.topics.size} topics. Exported ${backup.exportedAt.take(10)}."
+            importSummary = "${backup.data.semesters.size} semesters, ${backup.data.courses.size} courses and ${backup.data.topics.size} topics. Exported ${dateLabel(backup.exportedAt)}."
             importText = text
         }
     }
@@ -55,7 +57,7 @@ import java.time.ZoneId
     Page {
         Text("Make it feel like yours.", style = MaterialTheme.typography.headlineLarge)
         SectionTitle("Appearance")
-        ThemeChoice.entries.forEach { theme -> RadioRow(when (theme) { ThemeChoice.SYSTEM -> "Follow system"; ThemeChoice.PAPER -> "Paper · soft light"; ThemeChoice.SAND -> "Warm Sand · light"; ThemeChoice.CHARCOAL -> "Charcoal · dark"; ThemeChoice.MIDNIGHT -> "Midnight · dark blue" }, p.theme == theme, { vm.preferences { it.copy(theme = theme) } }) }
+        ThemeChoice.entries.forEach { theme -> ThemeOption(theme, when (theme) { ThemeChoice.SYSTEM -> "Follow system"; ThemeChoice.PAPER -> "Paper · soft light"; ThemeChoice.SAND -> "Warm Sand · light"; ThemeChoice.CHARCOAL -> "Charcoal · dark"; ThemeChoice.MIDNIGHT -> "Midnight · dark blue" }, p.theme == theme, { vm.preferences { it.copy(theme = theme) } }) }
         SectionTitle("Study & exam focus", "Edit") { open(FormSpec("Study preferences", listOf(
             FormField("normal", "Normal study minutes", p.normalMinutes.toString()),
             FormField("focus", "Focus study minutes", p.focusMinutes.toString()),
@@ -65,12 +67,15 @@ import java.time.ZoneId
             vm.preferences { it.copy(normalMinutes = normal, focusMinutes = focus, focusLeadDays = lead, difficultPercent = hard) }
         }) }
         QuietCard {
-            Text("${minutesLabel(p.normalMinutes)} regular · ${minutesLabel(p.focusMinutes)} focus", style = MaterialTheme.typography.titleMedium)
-            Text("Focus starts ${p.focusLeadDays} days before exams. Difficult topics use at most ${p.difficultPercent}% of the daily study budget.", style = MaterialTheme.typography.bodyMedium)
-            Text("Regular days reserve 30% for new learning; focus days reserve 20%. Difficult work remains capped within your available study time.", style = MaterialTheme.typography.bodyMedium)
-            Text(if (p.autoFillDay) "Your study budget currently comes from free time in your day plan. Fixed budgets above apply when automatic planning is off." else "Fixed daily budgets are active.", style = MaterialTheme.typography.bodyMedium)
+            CategoryHeading(ActivityCategory.STUDY, if (p.autoFillDay) "Study follows your free time" else "Fixed daily budgets")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CategoryBadge(ActivityCategory.STUDY, "${p.difficultPercent}% difficult-work cap")
+                CategoryBadge(ActivityCategory.DEADLINE, "${p.focusLeadDays}d exam lead")
+            }
+            Text(if (p.autoFillDay) "Regular and focus limits below apply when automatic planning is off." else "${minutesLabel(p.normalMinutes)} regular · ${minutesLabel(p.focusMinutes)} focus", style = MaterialTheme.typography.bodyMedium)
+            if (p.autoFillDay) Text("${minutesLabel(p.normalMinutes)} regular · ${minutesLabel(p.focusMinutes)} focus limits", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        ItemRow("Day planning & sleep", "${p.studyPercent}% study · ${100 - p.studyPercent}% projects · ${minutesLabel(p.sleepMinutes)} sleep", onClick = { open(Forms.dayPlanning(vm)) })
+        ItemRow("Day planning & sleep", "${p.studyPercent}% study · ${100 - p.studyPercent}% projects · ${minutesLabel(p.sleepMinutes)} sleep", category = ActivityCategory.REST, onClick = { open(Forms.dayPlanning(vm)) })
         SectionTitle("University timezone", "Edit") { open(FormSpec("University timezone", listOf(
             FormField("timezone", "University timezone", p.timezone)), "Create each semester with its own name, start date and expected end date in University.") { v ->
             val zone = v.required("timezone"); ZoneId.of(zone)
@@ -116,6 +121,6 @@ import java.time.ZoneId
         dismissButton = { TextButton(onClick = { importText = null }) { Text("Cancel") } }) }
     if (reset) AlertDialog(onDismissRequest = { reset = false }, title = { Text("Start fresh?") },
         text = { Text("All local records and study history will be erased. Export a backup first to keep a copy.") },
-        confirmButton = { TextButton(onClick = { vm.action { vm.repository.change { Snapshot() }; vm.repository.preferences { it.copy(onboardingComplete = false, demoData = false, notifications = false) }; dev.stillday.app.Reminders.refresh(context, vm.repository) }; reset = false }) { Text("Erase & start again") } },
+        confirmButton = { TextButton(onClick = { vm.action { vm.repository.change { Snapshot() }; vm.repository.preferences { it.copy(onboardingComplete = false, demoData = false, notifications = false, manualStudyDate = null, manualStudyTopicIds = emptyList(), manualStudyHardCap = true) }; dev.stillday.app.Reminders.refresh(context, vm.repository) }; reset = false }) { Text("Erase & start again") } },
         dismissButton = { TextButton(onClick = { reset = false }) { Text("Cancel") } })
 }

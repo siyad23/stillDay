@@ -21,6 +21,8 @@ import androidx.glance.text.*
 import androidx.glance.unit.ColorProvider
 import androidx.work.*
 import dev.stillday.app.ui.stilldayColorScheme
+import dev.stillday.app.ui.activityPalette
+import dev.stillday.app.ui.category
 import dev.stillday.domain.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -86,8 +88,11 @@ class AgendaWidget : GlanceAppWidget() {
                             }
                         } else day.entries.forEachIndexed { index, entry -> item {
                             AgendaRow(day.date, now.toLocalDate(), locale, colors, showDate = index == 0 && !hasSummary) {
-                                Column(GlanceModifier.fillMaxWidth().surface(R.drawable.widget_card, colors.surfaceContainer.copy(alpha = 0.92f))
+                                val category = entry.kind.category()
+                                val palette = activityPalette(category, colors)
+                                Column(GlanceModifier.fillMaxWidth().surface(R.drawable.widget_card, palette.background.copy(alpha = 0.92f))
                                     .clickable(open(entry.route)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                    Text(category.label, style = style(palette.accent, 10, true), maxLines = 1)
                                     Text(entry.title, style = style(colors.onSurface, if (compact) 14 else 15, true), maxLines = 2)
                                     val timing = if (entry.at == null) "All day" else entry.at!!.format(time) +
                                         (entry.end?.let { end -> "–" + (if (end.toLocalDate() != entry.date) "${DisplayDates.format(end.toLocalDate())} " else "") + end.format(time) } ?: "")

@@ -19,7 +19,7 @@ object Agenda {
         data.occurrences.filter { !it.cancelled && !Recurrence.suppressed(it, data) && it.end.dateTime() > now }.forEach { o ->
             val course = courses[o.courseId] ?: return@forEach
             add(AgendaEntry("class:${o.id}", o.start.dateTime().toLocalDate(), course.name, o.start.dateTime(), o.end.dateTime(),
-                listOf(o.location.ifBlank { course.location }, if (o.overridden) "Rescheduled" else "").filter { it.isNotBlank() }.joinToString(" · "),
+                listOf(o.location, if (o.overridden) "Rescheduled" else "").filter { it.isNotBlank() }.joinToString(" · "),
                 "class:${o.id}", if (course.type == CourseType.LAB) AgendaKind.LAB else AgendaKind.CLASS))
         }
         data.assessments.forEach { a ->
@@ -69,7 +69,7 @@ object Agenda {
         }
         val focus = Recurrence.focus(today, data.periods, preferences).active
         val routines = data.routineOccurrences.count { it.date <= today.toString() && !it.completed && !it.skipped }
-        val labTasks = LabSubmissions.daily(today, data).size
+        val labTasks = if (focus) 0 else LabSubmissions.daily(today, data).size
         val count = LifeResolver.dailyTodos(today, data, focus).size + routines + labTasks
         val grouped = entries.sortedWith(compareBy<AgendaEntry> { it.date }.thenBy { it.at ?: it.date.atStartOfDay() }.thenBy { it.id })
             .take(240).groupBy { it.date }

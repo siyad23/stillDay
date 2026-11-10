@@ -49,7 +49,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 ## Features
 
 - Individually created and named semesters with independent start/expected end dates, plus a configurable university timezone.
-- Theory/lab courses with multiple weekly slots, every-N-week recurrence, full-semester generated occurrences, individual rescheduling/cancellation, and attendance.
+- Theory/lab courses with independent rooms for each recurring slot, every-N-week recurrence, full-semester generated occurrences, individual rescheduling/cancellation, and attendance.
 - Chapters with separate Topics, Exercises, and Example problems sections. Each item has difficulty, understanding feedback, study estimates, partial progress, archive/restore, and independent review history. Problems also track Not started, In progress, and Solved.
 - Quizzes and provisional/detailed exams with whole-chapter or individual topic/problem syllabus selection and independent preparation checklists.
 - Exam periods that suspend classes and automatically activate an editable focus window. Assignment/project suggestions pause while deadline warnings remain visible.
@@ -57,16 +57,19 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today. Back restores the actual previous page, its selected section and scroll position.
 - Lab experiments with independent prework/report statuses and submission deadlines, including overdue tracking, Calendar/widget entries and reminders; pending lab work appears on Today.
 - [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
-- Weekly hall meals, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
+- Weekly hall meals, everyday Eat/Skip defaults, weekday exceptions, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
 - One-off and bounded recurring routines with start/end times or durations, completion, skipping, and individual rescheduling.
 - Dynamic study/project time around routines, travel, classes, meals, five manually timed prayers and sleep. Adjustable 50/50 split, ten-minute class buffers, and relaxation gaps under thirty minutes.
 - Fajr-based wake-up and bedtime, plus an optional automatic wake alarm with maximum alarm volume, snooze/dismiss controls and a separate Clock backup shortcut.
+- A shared, quiet [visual system](docs/UX_SYSTEM.md): violet prayers, sage study, blue classes and amber projects, with icons, time columns, status badges and accessible theme previews. Today previews upcoming activities directly and avoids duplicate event lists.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
 - Home-screen Add Quiz widget, daily briefings, event/deadline reminders, and validated JSON export/import.
 - A translucent, theme-matched [home-screen agenda widget](docs/WIDGETS.md), with grouped dates, scrolling/resizing, event links, and quick quiz capture.
 - GitHub in-app update checks, verified APK downloads, and Android's installation prompt; daily automatic checks can be disabled in Settings.
 
 ## Study policy
+
+See [Exam routines and study choices](docs/EXAMS.md) for per-slot rooms, detailed theory-only exam routines, manual focus controls and today's topic selection. During focus, the next scheduled paper's syllabus guides automatic study; both new topics and preparation reviews remain within the available time and difficult-work limits.
 
 Automatic day planning derives the study budget from remaining free time, shared 50/50 with unfinished active projects by default. Focus reserves all work time for study. When automatic planning is off, fixed budgets default to 120 minutes normally and 360 during exam focus. New learning reserves 30% normally and 20% during focus; remaining time goes to reviews. Empty categories share their unused allocation. Difficulty 4–5 and the latest Again/Hard rating classify a topic as difficult, capped at 40% of the study budget by default. Unused time is not silently filled with more difficult work.
 
@@ -94,7 +97,7 @@ Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManag
 
 - `domain`: serializable entities, recurrence, location/meal resolution, validation, focus calculation, and deterministic study planning. JVM tests include a 150-day, 180-topic simulation with mixed difficulty and missed weeks.
 - `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, Glance widget, Android reminders, and instrumented UI/persistence tests.
-- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
+- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations; version 5 → 6 adds weekly meal plans; version 6 → 7 adds per-slot rooms and exam-focus overrides. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
 
 ```powershell
 .\scripts\Build.ps1

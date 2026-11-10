@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.stillday.app.PlannerViewModel
@@ -30,15 +31,27 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
 @Composable fun DayTimeline(schedule: DaySchedule, navigate: (String) -> Unit, onStudy: (() -> Unit)? = null) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     SectionTitle("Your time", "Plan settings") { navigate("Planning") }
-    QuietCard {
-        Text("Wake ${timeLabel(schedule.wake.toString())} 路 sleep ${timeLabel(schedule.bedtime.toString())}", style = MaterialTheme.typography.titleMedium)
-        Text("${minutesLabel(schedule.studyMinutes)} study 路 ${minutesLabel(schedule.projectMinutes)} projects remaining", style = MaterialTheme.typography.bodyMedium)
-        Text("Short gaps stay free. Your plan adjusts when your commitments change.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        SummaryMetric("Study left", minutesLabel(schedule.studyMinutes), ActivityCategory.STUDY, Modifier.weight(1f))
+        SummaryMetric("Project time", minutesLabel(schedule.projectMinutes), ActivityCategory.PROJECT, Modifier.weight(1f))
+    }
+    Text("Wake ${timeLabel(schedule.wake.toString())} 路 sleep ${timeLabel(schedule.bedtime.toString())}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val visible = schedule.blocks.filterNot { it.kind == DayBlockKind.PREPARATION }
+    (if (expanded) visible else visible.take(4)).forEachIndexed { index, block ->
+        val status = if (schedule.remainingFrom != null && block.start <= schedule.remainingFrom && block.end > schedule.remainingFrom) "Now" else if (index == 0) "Next" else null
+        ActivityCard(block.title, if (block.kind == DayBlockKind.SLEEP) "${minutesLabel(block.minutes)} sleep target" else block.detail,
+            block.kind.category(), timeLabel(block.start.toString()),
+            timeLabel(block.end.toString()), badge = when (block.kind) { DayBlockKind.LAB -> "Lab"; DayBlockKind.CLASS -> "Class"; DayBlockKind.SLEEP -> "Rest"; else -> block.kind.category().label },
+            status = status, onClick = if (block.kind == DayBlockKind.STUDY) onStudy else block.route?.let { route -> { navigate(route) } })
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide day plan" else "Show day plan") }
-        if (expanded) schedule.blocks.forEach { block ->
-            ItemRow(block.title, "${blockTime(block)} 路 ${block.detail}", onClick = if (block.kind == DayBlockKind.STUDY) onStudy else block.route?.let { route -> { navigate(route) } })
-        }
-        schedule.warnings.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        TextButton(onClick = { navigate("Calendar") }) { Text("Full calendar") }
+    }
+    if (schedule.warnings.isNotEmpty()) {
+        var showNotes by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { showNotes = !showNotes }) { Text(if (showNotes) "Hide plan notes" else "${schedule.warnings.size} plan notes") }
+        if (showNotes) schedule.warnings.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -46,6 +59,7 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
     val p = state.preferences
     SectionTitle("Day planning", "Edit") { open(Forms.dayPlanning(vm)) }
     QuietCard {
+        CategoryHeading(ActivityCategory.LIFE, "Make room for your day")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(p.autoFillDay, { enabled -> vm.preferences { it.copy(autoFillDay = enabled) } })
             Text("  Fill available time", style = MaterialTheme.typography.bodyLarge)
@@ -56,9 +70,16 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
         if (!p.autoFillDay) Text("Study uses your fixed daily budget while automatic planning is off.", style = MaterialTheme.typography.bodySmall)
     }
     SectionTitle("Meal times", "Edit") { open(Forms.mealTiming(vm)) }
-    Text("Breakfast ${p.breakfastTime} 路 lunch ${p.lunchTime} 路 dinner ${p.dinnerTime}\n${p.mealMinutes} minutes per meal. Weekly hall times and dated overrides take priority.", style = MaterialTheme.typography.bodyMedium)
+    QuietCard {
+        CategoryHeading(ActivityCategory.MEAL, "Your usual meals")
+        listOf("Breakfast" to p.breakfastTime, "Lunch" to p.lunchTime, "Dinner" to p.dinnerTime).forEach { (slot, time) ->
+            ItemRow(slot, time, if (slot in p.skippedMeals) "Skip by default" else "${p.mealMinutes} min")
+        }
+        Text("Weekday plans and dated changes take priority.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
     SectionTitle("Prayers & wake-up", "Set times") { open(Forms.prayers(vm)) }
     QuietCard {
+        CategoryHeading(ActivityCategory.PRAYER, "Five daily prayers")
         if (p.prayerTimes.isEmpty()) Text("Set your five local prayer times. They repeat daily until you change them.", style = MaterialTheme.typography.bodyMedium)
         else Prayer.entries.forEach { prayer -> Text("${prayer.label} 路 ${p.prayerTimes.getValue(prayer.name)}", style = MaterialTheme.typography.bodyMedium) }
         Text("${p.prayerMinutes} minutes per prayer", style = MaterialTheme.typography.bodySmall)

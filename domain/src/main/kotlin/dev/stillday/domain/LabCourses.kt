@@ -2,6 +2,10 @@ package dev.stillday.domain
 
 object LabCourses {
     fun validateCourseChange(data: Snapshot, course: Course) {
+        require(course.type == CourseType.THEORY || data.courses.find { it.id == course.id }?.type != CourseType.THEORY ||
+            data.assessments.none { it.courseId == course.id && it.kind != AssessmentKind.QUIZ }) {
+            "This course has semester exams. Convert those assessments to quizzes before changing it to a lab."
+        }
         require(course.isProjectLab || data.projects.none { it.courseId == course.id }) {
             "This course has lab projects. Relink them as personal projects or to another project-based lab before changing its type."
         }

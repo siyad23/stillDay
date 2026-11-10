@@ -9,9 +9,9 @@ object DemoData {
         val courses = listOf(Course("demo-math", semester.id, "Engineering Mathematics", "MAT 203"),
             Course("demo-circuits", semester.id, "Electrical Circuits", "EEE 201"),
             Course("demo-lab", semester.id, "Circuits Lab", "EEE 202", CourseType.LAB, "Lab 204"))
-        val rules = listOf(ScheduleRule("demo-slot-1", courses[0].id, today.dayOfWeek.value, "10:00", anchorDate = semester.start),
-            ScheduleRule("demo-slot-2", courses[1].id, today.dayOfWeek.value, "14:00", anchorDate = semester.start),
-            ScheduleRule("demo-slot-3", courses[2].id, today.plusDays(1).dayOfWeek.value, "09:00", 150, 2, semester.start))
+        val rules = listOf(ScheduleRule("demo-slot-1", courses[0].id, today.dayOfWeek.value, "10:00", anchorDate = semester.start, location = courses[0].location),
+            ScheduleRule("demo-slot-2", courses[1].id, today.dayOfWeek.value, "14:00", anchorDate = semester.start, location = courses[1].location),
+            ScheduleRule("demo-slot-3", courses[2].id, today.plusDays(1).dayOfWeek.value, "09:00", 150, 2, semester.start, location = courses[2].location))
         val occurrences = rules.flatMap { rule -> Recurrence.generateOccurrences(semester, courses.first { it.id == rule.courseId }, rule) }
         val chapters = listOf(Chapter("demo-ch1", courses[0].id, "Differential equations"),
             Chapter("demo-ch2", courses[1].id, "Network analysis"), Chapter("demo-ch3", courses[0].id, "Transforms", 1))

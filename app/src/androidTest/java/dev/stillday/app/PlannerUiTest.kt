@@ -48,7 +48,7 @@ class PlannerUiTest {
 
     @Test fun todayRecordsStudyAndKeepsBudget() {
         screenshot("01-today-paper")
-        rule.onNodeWithText("Start studying").performClick()
+        rule.onNodeWithText("Start studying").performScrollTo().performClick()
         rule.onNodeWithText("Good", useUnmergedTree = true).performClick()
         rule.onNodeWithText("Record study").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.reviews.isNotEmpty() }
@@ -92,7 +92,7 @@ class PlannerUiTest {
 
     @Test fun calendarAttendanceAndReschedulingPersist() {
         rule.onNodeWithContentDescription("Open calendar").performClick()
-        rule.onNodeWithText("10:00 · Engineering Mathematics").performScrollTo().performClick()
+        rule.onNode(hasText("10:00") and hasText("Engineering Mathematics")).performScrollTo().performClick()
         rule.onNodeWithText("Present").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.occurrences.any { it.attendance == Attendance.PRESENT } }
         rule.onNodeWithText("Reschedule this class").performClick()
@@ -135,7 +135,7 @@ class PlannerUiTest {
         screenshot("06-quick-quiz")
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.assessments.any { it.title == "Widget capture quiz" } }
-        rule.onNodeWithText("Your day, made simpler.").assertExists()
+        rule.onNodeWithText("Today at a glance.").assertExists()
     }
 
     @Test fun largeTextAndActivityRecreationKeepTheAppUsable() {
@@ -145,7 +145,7 @@ class PlannerUiTest {
             rule.activityRule.scenario.recreate()
             rule.waitUntil(10_000) { rule.onAllNodesWithText("Start studying").fetchSemanticsNodes().isNotEmpty() }
             screenshot("07-today-large-text")
-            rule.onNodeWithText("Start studying").performClick()
+            rule.onNodeWithText("Start studying").performScrollTo().performClick()
             rule.onNodeWithText("Record study").assertIsDisplayed()
             screenshot("08-study-large-text")
             rule.onNodeWithText("Cancel").performClick()

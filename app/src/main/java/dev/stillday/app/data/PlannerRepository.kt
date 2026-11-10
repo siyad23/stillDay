@@ -12,6 +12,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -19,6 +22,18 @@ import java.time.ZoneId
 
 private val Context.settingsStore by preferencesDataStore("stillday_settings")
 val plannerJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
+
+/** Only missing legacy fields inherit a room once; a new, explicitly blank slot stays blank. */
+fun decodePlannerBackup(text: String): Backup {
+    val backup = plannerJson.decodeFromString<Backup>(text)
+    val raw = plannerJson.parseToJsonElement(text).jsonObject["data"]?.jsonObject?.get("rules")?.jsonArray.orEmpty()
+    val legacyIds = raw.filter { "location" !in it.jsonObject }.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }.toSet()
+    if (legacyIds.isEmpty()) return backup
+    val courses = backup.data.courses.associateBy { it.id }
+    return backup.copy(data = backup.data.copy(rules = backup.data.rules.map { r ->
+        if (r.id in legacyIds) r.copy(location = courses[r.courseId]?.location.orEmpty()) else r
+    }))
+}
 data class AppState(val data: Snapshot = Snapshot(), val preferences: Preferences = Preferences(), val ready: Boolean = false)
 
 class PlannerRepository(private val context: Context, private val database: PlannerDatabase,
@@ -43,6 +58,8 @@ class PlannerRepository(private val context: Context, private val database: Plan
         withContext(Dispatchers.IO) {
             val next = transform(mutable.value.data)
             if (next == mutable.value.data) return@withContext
+            val previous = mutable.value.data.assessments.associateBy { it.id }
+            next.assessments.filter { previous[it.id] != it }.forEach { ExamPlanning.validateAssessment(it, next) }
             Validation.snapshot(next)
             database.planner().replace(next)
             mutable.value = mutable.value.copy(data = next)
@@ -100,13 +117,25 @@ class PlannerRepository(private val context: Context, private val database: Plan
         s.copy(plans = s.plans.filterNot { it.id == id } + StudyPlanEntry(id, item.topic.id, today().toString(), item.kind, item.minutes, skipped = true))
     }
 
+    suspend fun chooseStudyTopics(topicIds: List<String>, keepDifficultCap: Boolean) {
+        val date = today().toString()
+        val s = state.value.data
+        val courses = s.courses.associateBy { it.id }
+        val chapters = s.chapters.associateBy { it.id }
+        val focus = Recurrence.focus(today(), s.periods, state.value.preferences).active
+        val ids = topicIds.distinct()
+        require(ids.all { id -> s.topics.any { it.id == id && !it.archived && (!focus || courses[chapters[it.chapterId]?.courseId]?.type == CourseType.THEORY) } }) { "Choose available theory topics while exam focus is active." }
+        change { it.copy(plans = it.plans.map { row -> if (row.date == date && row.topicId in ids) row.copy(skipped = false) else row }) }
+        preferences { it.copy(manualStudyDate = date, manualStudyTopicIds = ids, manualStudyHardCap = keepDifficultCap) }
+    }
+
     suspend fun export(): String = mutex.withLock {
         plannerJson.encodeToString(Backup(exportedAt = now().toString(), preferences = mutable.value.preferences, data = mutable.value.data))
     }
 
     suspend fun import(text: String) = mutex.withLock {
         require(text.length <= 20_000_000) { "Backup is too large." }
-        val backup = plannerJson.decodeFromString<Backup>(text)
+        val backup = decodePlannerBackup(text)
         Validation.backup(backup)
         // Room replacement is a single transaction. Settings are written only after validation succeeds.
         database.planner().replace(backup.data)

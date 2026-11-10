@@ -18,8 +18,10 @@ fun String.dateTime(): LocalDateTime = LocalDateTime.parse(this)
 @Serializable enum class Attendance { UNMARKED, PRESENT, ABSENT, EXCUSED }
 @Serializable enum class WorkStatus { NOT_DONE, WRITTEN, SUBMITTED, RECEIVED, NOT_REQUIRED }
 @Serializable enum class AssessmentKind { QUIZ, MIDSEMESTER, FINAL }
+@Serializable enum class FocusOverride { AUTO, ON, OFF }
 @Serializable enum class Place { UNIVERSITY, HOME, OTHER }
-@Serializable enum class MealAction { SKIP, OUTSIDE, DIFFERENT }
+@Serializable enum class MealAction { SKIP, OUTSIDE, DIFFERENT, EAT }
+@Serializable enum class MealDefault { FOLLOW_DEFAULT, EAT, SKIP }
 @Serializable enum class Frequency { ONCE, DAILY, WEEKLY, MONTHLY }
 @Serializable enum class Rating(val grade: Int) { AGAIN(1), HARD(3), GOOD(4), EASY(5) }
 @Serializable enum class StudyKind { NEW, REVIEW, EXAM_PREP }
@@ -54,7 +56,11 @@ data class Preferences(
     val wakeBeforeFajrMinutes: Int = 15,
     val fallbackWakeTime: String = "07:00",
     val wakeAlarmEnabled: Boolean = false,
-    val highAlarmVolume: Boolean = true
+    val highAlarmVolume: Boolean = true,
+    val skippedMeals: Set<String> = emptySet(),
+    val manualStudyDate: String? = null,
+    val manualStudyTopicIds: List<String> = emptyList(),
+    val manualStudyHardCap: Boolean = true
 )
 
 @Entity(tableName = "semesters") @Serializable
@@ -70,7 +76,8 @@ val Course.isExperimentLab: Boolean get() = type == CourseType.LAB && labType ==
 
 @Entity(tableName = "schedule_rules", indices = [Index("courseId")]) @Serializable
 data class ScheduleRule(@PrimaryKey val id: String = newId(), val courseId: String, val weekday: Int,
-    val time: String, val durationMinutes: Int = 60, val intervalWeeks: Int = 1, val anchorDate: String)
+    val time: String, val durationMinutes: Int = 60, val intervalWeeks: Int = 1, val anchorDate: String,
+    @ColumnInfo(defaultValue = "''") val location: String = "")
 
 @Entity(tableName = "occurrences", indices = [Index("courseId"), Index("ruleId"), Index("start")]) @Serializable
 data class Occurrence(@PrimaryKey val id: String, val courseId: String, val ruleId: String,
@@ -94,7 +101,8 @@ val Topic.isProblem: Boolean get() = kind != ChapterItemKind.TOPIC
 
 @Entity(tableName = "exam_periods", indices = [Index("semesterId")]) @Serializable
 data class ExamPeriod(@PrimaryKey val id: String = newId(), val semesterId: String, val name: String,
-    val start: String, val end: String)
+    val start: String, val end: String,
+    @ColumnInfo(defaultValue = "'AUTO'") val focusOverride: FocusOverride = FocusOverride.AUTO)
 
 @Entity(tableName = "assessments", indices = [Index("courseId"), Index("periodId")]) @Serializable
 data class Assessment(@PrimaryKey val id: String = newId(), val courseId: String, val title: String,
@@ -128,7 +136,8 @@ data class Experiment(@PrimaryKey val id: String = newId(), val occurrenceId: St
 
 @Entity(tableName = "meal_templates", indices = [Index(value = ["weekday", "slot"], unique = true)]) @Serializable
 data class MealTemplate(@PrimaryKey val id: String = newId(), val weekday: Int, val slot: String,
-    val time: String, val food: String)
+    val time: String, val food: String,
+    @ColumnInfo(defaultValue = "'FOLLOW_DEFAULT'") val defaultPlan: MealDefault = MealDefault.FOLLOW_DEFAULT)
 
 @Entity(tableName = "meal_overrides", indices = [Index(value = ["date", "slot"], unique = true)]) @Serializable
 data class MealOverride(@PrimaryKey val id: String = newId(), val date: String, val slot: String,

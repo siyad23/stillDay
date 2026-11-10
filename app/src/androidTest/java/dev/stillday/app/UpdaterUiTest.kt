@@ -52,8 +52,8 @@ class UpdaterUiTest {
             rule.waitUntil(10_000) { rule.onAllNodesWithText("Update now").fetchSemanticsNodes().isNotEmpty() }
             screenshot(app, "17-update-available")
             rule.onNodeWithText("Update now").performClick()
-            rule.waitUntil(15_000) { rule.onAllNodesWithText("Allow Stillday to install updates").fetchSemanticsNodes().isNotEmpty() }
-            assertEquals(UpdatePhase.READY, manager.state.value.phase)
+            rule.waitUntil(30_000) { manager.state.value.phase == UpdatePhase.ERROR || rule.onAllNodesWithText("Allow Stillday to install updates").fetchSemanticsNodes().isNotEmpty() }
+            assertEquals("APK verification: ${manager.state.value.message}", UpdatePhase.READY, manager.state.value.phase)
             rule.onNodeWithText("Open Android settings").assertExists()
             screenshot(app, "18-verified-update-permission")
             rule.onNodeWithText("Not now").performClick()

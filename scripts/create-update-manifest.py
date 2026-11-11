@@ -9,7 +9,9 @@ import shutil
 import subprocess
 
 
-def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = None) -> dict:
+def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = None, apk_name: str = "Stillday.apk") -> dict:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*\.apk", apk_name, re.IGNORECASE):
+        raise ValueError("Use an APK filename without directories.")
     tools = sdk / "build-tools" / "36.0.0"
     aapt = tools / ("aapt2.exe" if os.name == "nt" else "aapt2")
     signer = tools / ("apksigner.bat" if os.name == "nt" else "apksigner")
@@ -27,7 +29,7 @@ def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = 
     if release_tag is not None and release_tag != "v" + version:
         raise ValueError("The release tag must match the APK versionName: v" + version)
     output.mkdir(parents=True, exist_ok=True)
-    target = output / "Stillday.apk"
+    target = output / apk_name
     if apk.resolve() != target.resolve():
         shutil.copyfile(apk, target)
     sha = hashlib.sha256(target.read_bytes()).hexdigest()
@@ -37,7 +39,7 @@ def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = 
     metadata = output / "update.json"
     metadata.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     metadata_sha = hashlib.sha256(metadata.read_bytes()).hexdigest()
-    (output / "SHA256SUMS.txt").write_text(sha + "  Stillday.apk\n" + metadata_sha + "  update.json\n", encoding="utf-8")
+    (output / "SHA256SUMS.txt").write_text(sha + "  " + target.name + "\n" + metadata_sha + "  update.json\n", encoding="utf-8")
     return manifest
 
 
@@ -47,7 +49,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", default=Path("artifacts/release"), type=Path)
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"), type=Path)
     parser.add_argument("--tag")
+    parser.add_argument("--apk-name", default="Stillday.apk", help="Exact APK asset name on the GitHub release")
     args = parser.parse_args()
     if args.sdk is None:
         parser.error("Set ANDROID_HOME or supply --sdk.")
-    print(json.dumps(create_assets(args.apk, args.output, args.sdk, args.tag), indent=2))
+    print(json.dumps(create_assets(args.apk, args.output, args.sdk, args.tag, args.apk_name), indent=2))

@@ -16,6 +16,25 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.ref_name }}
     steps:
+      - name: Reject an existing release for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          from urllib.parse import quote
+          url = 'https://api.github.com/repos/' + os.environ['GH_REPO'] + '/releases/tags/' + quote(os.environ['RELEASE_TAG'], safe='')
+          request = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'User-Agent': 'Stillday-release'})
+          try:
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  release = json.load(response)
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+          else:
+              raise SystemExit('A release already exists for this tag: ' + release['html_url'] + '. Do not create a second release. Repair its assets or use a new version/tag. Publish the workflow draft with Stillday.apk and update.json; do not create a separate release containing a debug APK.')
+          PY
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +73,9 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: bash ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --console=plain
+        run: |
+          python -m unittest discover -s scripts -p 'test_*.py'
+          bash ./gradlew :domain:test :app:testDebugUnitTest :app:lintDebug :app:assembleRelease --no-daemon --console=plain
       - name: Generate verified update assets
         run: python scripts/create-update-manifest.py --apk app/build/outputs/apk/release/app-release.apk --tag "$RELEASE_TAG"
       - name: Prepare release notes

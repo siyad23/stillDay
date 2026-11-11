@@ -8,6 +8,8 @@ local.properties
 .idea/
 captures/
 *.hprof
+__pycache__/
+*.pyc
 
 # Local delivery artifacts, reports, and emulator/device data
 /artifacts/

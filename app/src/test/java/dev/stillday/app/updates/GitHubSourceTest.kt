@@ -33,6 +33,13 @@ class GitHubSourceTest {
         assertEquals(ReleaseResult.UpToDate, source(manifest = m.copy(versionCode = 3)).check(app))
         assertEquals(ReleaseResult.UpToDate, source(manifest = m.copy(versionCode = 2)).check(app))
     }
+    @Test fun repairedReleaseCanKeepItsOriginalDebugApkName() = runBlocking {
+        val manifest = m.copy(apkName = "Stillday-debug.apk")
+        val result = source(release().replace("Stillday.apk", manifest.apkName), manifest).check(app) as ReleaseResult.Available
+        assertEquals(base + "Stillday-debug.apk", result.update.downloadUrl)
+        assertEquals(manifest, result.update.manifest)
+        assertEquals(ReleaseResult.UpToDate, source(release().replace("Stillday.apk", manifest.apkName), manifest).check(app.copy(versionCode = 4)))
+    }
     @Test fun legacyReleaseDoesNotDownloadItsApkToGuessVersion() = runBlocking {
         val transport = Transport(mapOf(UpdatePolicy.API_URL to """{"assets":[{"name":"Stillday-debug.apk"}]}"""))
         assertEquals(ReleaseResult.NotConfigured, GitHubUpdateSource(transport).check(app))

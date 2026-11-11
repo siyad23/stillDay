@@ -117,6 +117,19 @@ class PlannerRepository(private val context: Context, private val database: Plan
         s.copy(plans = s.plans.filterNot { it.id == id } + StudyPlanEntry(id, item.topic.id, today().toString(), item.kind, item.minutes, skipped = true))
     }
 
+    suspend fun solveProblem(topicId: String, rating: Rating, minutes: Int, difficulty: Int, nextMinutes: Int,
+        solved: Boolean, planned: StudyItem? = null) = change { s ->
+        val date = today()
+        if (planned != null) require(s.reviews.none { it.topicId == topicId && it.date == date.toString() }) {
+            "This problem is already recorded today. Use its chapter for another attempt."
+        }
+        val topic = s.topics.first { it.id == topicId }
+        val (updated, event) = ProblemPractice.record(topic, date, rating, minutes, difficulty, nextMinutes, solved,
+            planned?.kind ?: if (topic.learned) StudyKind.REVIEW else StudyKind.NEW)
+        s.copy(topics = s.topics.map { if (it.id == topicId) updated else it }, reviews = s.reviews + event,
+            plans = s.plans.map { if (it.topicId == topicId && it.date == date.toString()) it.copy(completed = true, skipped = false) else it })
+    }
+
     suspend fun chooseStudyTopics(topicIds: List<String>, keepDifficultCap: Boolean) {
         val date = today().toString()
         val s = state.value.data

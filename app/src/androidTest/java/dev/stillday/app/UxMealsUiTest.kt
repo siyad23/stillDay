@@ -29,33 +29,37 @@ class UxMealsUiTest {
     @Test fun recurringSkipCanBeChangedForOneWeekdayAndOneDateAndSurvivesBackup() {
         waitReady()
         rule.onNodeWithText("Life").performClick()
-        rule.onNodeWithContentDescription("Breakfast by default").performScrollTo().performClick()
-        rule.waitUntil(10_000) { "Breakfast" in repository.state.value.preferences.skippedMeals }
-        val date = repository.today()
-        assertTrue(LifeResolver.meals(date, repository.state.value.data, repository.state.value.preferences).first().skipped)
-        rule.onNodeWithText("Weekly hall menu").performScrollTo()
-        rule.onNode(hasText("Breakfast") and hasText("Weekly meal") and hasClickAction()).performScrollTo().performClick()
-        rule.onNodeWithText("Weekly plan").performScrollTo().performClick()
-        rule.onNodeWithText("Eat this weekday").performClick()
-        rule.onNodeWithText("Save").performClick()
-        rule.waitUntil(10_000) { repository.state.value.data.meals.any { it.weekday == date.dayOfWeek.value && it.slot == "Breakfast" && it.defaultPlan == MealDefault.EAT } }
-        assertFalse(LifeResolver.meals(date, repository.state.value.data, repository.state.value.preferences).first().skipped)
+        rule.onNodeWithText("Everyday defaults").assertDoesNotExist()
+        rule.onNodeWithContentDescription("Breakfast by default").assertDoesNotExist()
+        rule.onNodeWithText("Day", substring = false).performScrollTo().performClick()
+        rule.onAllNodesWithText("Wednesday").onLast().performClick()
+        rule.onNodeWithContentDescription("Eat lunch every Wednesday").performScrollTo().performClick()
+        rule.waitUntil(10_000) { repository.state.value.data.meals.any { it.weekday == 3 && it.slot == "Lunch" && it.defaultPlan == MealDefault.SKIP } }
+        val date = repository.today().with(java.time.temporal.TemporalAdjusters.nextOrSame(java.time.DayOfWeek.WEDNESDAY))
+        val data = repository.state.value.data
+        assertTrue(LifeResolver.meals(date, data)[1].skipped)
+        assertTrue(LifeResolver.meals(date.plusWeeks(1), data)[1].skipped)
+        assertFalse(LifeResolver.meals(date.plusDays(1), data)[1].skipped)
+        assertFalse(LifeResolver.meals(date, data).first().skipped)
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Weekly meal updated").fetchSemanticsNodes().isEmpty() }
+        screenshot("weekly-wednesday-lunch")
         runBlocking {
-            val s = repository.state.value
             val text = repository.export()
+            assertFalse(text.contains("skippedMeals"))
             repository.change { Snapshot() }
             repository.import(text)
-            assertEquals(s.preferences.skippedMeals, repository.state.value.preferences.skippedMeals)
-            assertEquals(s.data.meals.toSet(), repository.state.value.data.meals.toSet())
+            assertEquals(data.meals.toSet(), repository.state.value.data.meals.toSet())
         }
         rule.onNodeWithText("Add", substring = false).performScrollTo().performClick()
-        rule.onNodeWithText("Meal").performScrollTo().performClick()
-        rule.onNode(hasText("Breakfast") and hasAnyAncestor(isPopup())).performClick()
-        rule.onNodeWithText("Plan").performScrollTo().performClick()
-        rule.onNodeWithText("I will not eat").performClick()
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Change one meal").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithText("Date", substring = false).performTextReplacement(DisplayDates.format(date))
+        Espresso.closeSoftKeyboard()
+        rule.onNodeWithText("Plan", substring = false).performScrollTo().performClick()
+        rule.onNodeWithText("I will eat as usual").performClick()
         rule.onNodeWithText("Save").performClick()
-        rule.waitUntil(10_000) { repository.state.value.data.mealOverrides.any { it.date == date.toString() && it.slot == "Breakfast" } }
-        assertTrue(LifeResolver.meals(date, repository.state.value.data, repository.state.value.preferences).first().skipped)
+        rule.waitUntil(10_000) { repository.state.value.data.mealOverrides.any { it.date == date.toString() && it.slot == "Lunch" } }
+        assertFalse(LifeResolver.meals(date, repository.state.value.data)[1].skipped)
+        assertTrue(LifeResolver.meals(date.plusWeeks(1), repository.state.value.data)[1].skipped)
     }
     @Test fun categoryCardsAreVisibleWithoutExpandingAndOpenTheirActualActivity() {
         waitReady()
@@ -90,7 +94,7 @@ class UxMealsUiTest {
         rule.onNodeWithText("Projects").performClick()
         screenshot("ux-projects-paper")
         rule.onNodeWithText("Life").performClick()
-        rule.onNodeWithContentDescription("Breakfast by default").performScrollTo().performClick()
+        rule.onNodeWithContentDescription("Eat breakfast every " + repository.today().dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }).performScrollTo().performClick()
         screenshot("ux-meal-defaults")
         rule.onNodeWithText("Today").performClick()
         runBlocking { repository.preferences { it.copy(theme = ThemeChoice.CHARCOAL) } }

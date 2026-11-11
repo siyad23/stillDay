@@ -189,13 +189,13 @@ class PlannerUiTest {
         rule.onNodeWithText("Engineering Mathematics").performClick()
         rule.onNodeWithText("Differential equations").performClick()
         rule.onNodeWithText("Add exercise").performScrollTo().performClick()
-        rule.onNodeWithText("Problem name or number").performTextInput("Exercise 2.4 #5")
+        rule.onNodeWithText("Problem number").performTextInput("Exercise 2.4 #5")
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.topics.any { it.title == "Exercise 2.4 #5" } }
         androidx.test.espresso.Espresso.closeSoftKeyboard()
         rule.onNodeWithText("Add example").performScrollTo().performClick()
         screenshot("16-example-problem-form")
-        rule.onNodeWithText("Problem name or number").performTextInput("Example 2.3")
+        rule.onNodeWithText("Problem number").performTextInput("Example 2.3")
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.topics.any { it.title == "Example 2.3" } }
         androidx.test.espresso.Espresso.closeSoftKeyboard()

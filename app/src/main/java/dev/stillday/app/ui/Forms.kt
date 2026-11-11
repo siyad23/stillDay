@@ -98,18 +98,24 @@ object Forms {
         vm.edit { it.copy(chapters = it.chapters.filterNot { row -> row.id == c.id } + c) }
     }
 
-    fun topic(vm: PlannerViewModel, chapter: Chapter, old: Topic? = null, kind: ChapterItemKind = ChapterItemKind.TOPIC) = FormSpec(
-        if (old == null) when (kind) { ChapterItemKind.TOPIC -> "Add topic"; ChapterItemKind.EXERCISE -> "Add exercise"; ChapterItemKind.EXAMPLE -> "Add example problem" } else "Edit chapter item", listOf(
-        FormField("title", if ((old?.kind ?: kind) == ChapterItemKind.TOPIC) "Topic name" else "Problem name or number", old?.title.orEmpty()),
-        FormField("kind", "Item type", (old?.kind ?: kind).name, ChapterItemKind.entries.map { Choice(it.name, when (it) { ChapterItemKind.TOPIC -> "Topic"; ChapterItemKind.EXERCISE -> "Exercise"; ChapterItemKind.EXAMPLE -> "Example problem" }) }),
-        FormField("difficulty", "Difficulty · 1 easy to 5 difficult", (old?.difficulty ?: 3).toString(), (1..5).map { Choice(it.toString()) }),
-        FormField("newMinutes", "Initial study minutes", (old?.newMinutes ?: 20).toString()),
-        FormField("reviewMinutes", "Review minutes", (old?.reviewMinutes ?: 10).toString()))) { v ->
-        val selectedKind = ChapterItemKind.valueOf(v.required("kind"))
-        val t = (old ?: Topic(chapterId = chapter.id, title = "", position = vm.state.value.data.topics.count { it.chapterId == chapter.id }))
-            .copy(title = v.required("title"), difficulty = v.number("difficulty", 1..5), newMinutes = v.number("newMinutes", 1..960), reviewMinutes = v.number("reviewMinutes", 1..960),
-                kind = selectedKind, practiceStatus = if (selectedKind == ChapterItemKind.TOPIC) PracticeStatus.NOT_STARTED else old?.practiceStatus ?: PracticeStatus.NOT_STARTED)
-        vm.edit { it.copy(topics = it.topics.filterNot { row -> row.id == t.id } + t) }
+    fun topic(vm: PlannerViewModel, chapter: Chapter, old: Topic? = null, kind: ChapterItemKind = ChapterItemKind.TOPIC): FormSpec {
+        val selectedKind = old?.kind ?: kind
+        val problem = selectedKind != ChapterItemKind.TOPIC
+        val title = if (old != null) "Edit chapter item" else when (selectedKind) {
+            ChapterItemKind.TOPIC -> "Add topic"; ChapterItemKind.EXERCISE -> "Add exercise"; ChapterItemKind.EXAMPLE -> "Add example problem"
+        }
+        val fields = listOf(FormField("title", if (problem) "Problem number" else "Topic name", old?.title.orEmpty())) +
+            if (problem) emptyList() else listOf(
+                FormField("difficulty", "Difficulty · 1 easy to 5 difficult", (old?.difficulty ?: 3).toString(), (1..5).map { Choice(it.toString()) }),
+                FormField("newMinutes", "Initial study minutes", (old?.newMinutes ?: 20).toString()),
+                FormField("reviewMinutes", "Review minutes", (old?.reviewMinutes ?: 10).toString()))
+        return FormSpec(title, fields, if (problem) "Add the number now. Set difficulty and time estimates when you record a solve attempt." else null) { v ->
+            val base = old ?: Topic(chapterId = chapter.id, title = "", kind = selectedKind,
+                position = vm.state.value.data.topics.count { it.chapterId == chapter.id })
+            val item = if (problem) base.copy(title = v.required("title")) else base.copy(title = v.required("title"),
+                difficulty = v.number("difficulty", 1..5), newMinutes = v.number("newMinutes", 1..960), reviewMinutes = v.number("reviewMinutes", 1..960))
+            vm.edit { it.copy(topics = it.topics.filterNot { row -> row.id == item.id } + item) }
+        }
     }
 
     fun period(vm: PlannerViewModel, semesterId: String, old: ExamPeriod? = null): FormSpec {
@@ -194,10 +200,10 @@ object Forms {
     fun meal(vm: PlannerViewModel, weekday: Int = 1, slot: String = "Breakfast", old: MealTemplate? = null) = FormSpec("Weekly hall meal", listOf(
         FormField("weekday", "Day", (old?.weekday ?: weekday).toString(), weekdayChoices),
         FormField("slot", "Meal", old?.slot ?: slot, listOf("Breakfast", "Lunch", "Dinner").map { Choice(it) }),
-        FormField("defaultPlan", "Weekly plan", (old?.defaultPlan ?: MealDefault.FOLLOW_DEFAULT).name,
-            listOf(Choice("FOLLOW_DEFAULT", "Use everyday default"), Choice("EAT", "Eat this weekday"), Choice("SKIP", "Skip this weekday"))),
+        FormField("defaultPlan", "Weekly plan", (old?.defaultPlan?.takeIf { it == MealDefault.SKIP } ?: MealDefault.EAT).name,
+            listOf(Choice("EAT", "Eat this weekday"), Choice("SKIP", "Skip this weekday"))),
         FormField("time", "Time", old?.time ?: with(vm.state.value.preferences) { when (slot) { "Lunch" -> lunchTime; "Dinner" -> dinnerTime; else -> breakfastTime } }),
-        FormField("food", "Food", old?.food.orEmpty(), optional = true)), "Repeats weekly. A weekday plan takes priority over your everyday default; a dated change takes priority over both.") { v ->
+        FormField("food", "Food", old?.food.orEmpty(), optional = true)), "Repeats on this weekday only. For example, skip lunch every Wednesday. A dated change takes priority.") { v ->
         val day = v.number("weekday", 1..7)
         val meal = v.required("slot")
         val row = MealTemplate(old?.id ?: newId(), day, meal, v.timeValue("time"), v["food"].orEmpty().trim(), MealDefault.valueOf(v.getValue("defaultPlan")))
@@ -292,13 +298,10 @@ object Forms {
         val p = vm.state.value.preferences
         return FormSpec("Meal timing", listOf(
             FormField("breakfastTime", "Breakfast time", p.breakfastTime), FormField("lunchTime", "Lunch time", p.lunchTime),
-            FormField("dinnerTime", "Dinner time", p.dinnerTime), FormField("minutes", "Minutes per meal", p.mealMinutes.toString())) +
-            listOf("Breakfast", "Lunch", "Dinner").map { slot -> FormField(slot + "Plan", "$slot by default", if (slot in p.skippedMeals) "SKIP" else "EAT",
-                listOf(Choice("EAT", "Eat by default"), Choice("SKIP", "Skip by default"))) },
+            FormField("dinnerTime", "Dinner time", p.dinnerTime), FormField("minutes", "Minutes per meal", p.mealMinutes.toString())),
             "These are your default meal times, including at home. A weekly hall meal or a dated override can set a different time. Skipped meals leave the time available.") { v ->
             val breakfast = v.timeValue("breakfastTime"); val lunch = v.timeValue("lunchTime"); val dinner = v.timeValue("dinnerTime"); val minutes = v.number("minutes", 1..180)
-            val skipped = listOf("Breakfast", "Lunch", "Dinner").filter { v[it + "Plan"] == "SKIP" }.toSet()
-            vm.preferences { it.copy(breakfastTime = breakfast, lunchTime = lunch, dinnerTime = dinner, mealMinutes = minutes, skippedMeals = skipped) }
+            vm.preferences { it.copy(breakfastTime = breakfast, lunchTime = lunch, dinnerTime = dinner, mealMinutes = minutes) }
         }
     }
 

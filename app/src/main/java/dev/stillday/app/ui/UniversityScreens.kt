@@ -164,7 +164,8 @@ import dev.stillday.domain.*
                 Text(topic.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                 IconButton(onClick = { open(Forms.topic(vm, chapter, topic)) }) { Icon(Icons.Outlined.Edit, "Edit ${topic.title}") }
             }
-            Text("Difficulty ${topic.difficulty}/5 · ${if (topic.learned) "${topic.lastRating?.name?.pretty() ?: "Studied"} · next ${topic.nextReview?.let(::dateLabel) ?: "not set"}" else "New · ${topic.newMinutes} min"}", style = MaterialTheme.typography.bodyMedium)
+            if (topic.isProblem && topic.lastRating == null) Text("Not attempted - set difficulty and time estimates after trying it.", style = MaterialTheme.typography.bodyMedium)
+            else Text("Difficulty ${topic.difficulty}/5 · ${if (topic.learned) "${topic.lastRating?.name?.pretty() ?: "Studied"} · next ${topic.nextReview?.let(::dateLabel) ?: "not set"}" else "New · ${topic.newMinutes} min"}", style = MaterialTheme.typography.bodyMedium)
             if (topic.isProblem) Text(topic.practiceStatus.label(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             if (topic.progressMinutes > 0) Text("${topic.progressMinutes} min progress saved", style = MaterialTheme.typography.labelMedium)
             Row {
@@ -181,14 +182,16 @@ import dev.stillday.domain.*
             archived.forEach { topic -> ItemRow(topic.title, "Tap to restore", onClick = { vm.edit("Topic restored") { it.copy(topics = it.topics.map { t -> if (t.id == topic.id) t.copy(archived = false) else t }) } }) }
         }
     }
-    practice?.let { topic -> EditorDialog(if (topic.isProblem) "Record solve attempt" else "Record extra study", { practice = null }, {
-        vm.action("Study recorded") { vm.repository.extraPractice(topic, rating, if (topic.learned) topic.reviewMinutes else topic.newMinutes) }; practice = null
-    }, "Record") {
-        Text(topic.title, style = MaterialTheme.typography.titleLarge)
-        Text("Records a full ${if (topic.learned) topic.reviewMinutes else topic.newMinutes}-minute session. Manual practice counts toward today's total even when it exceeds the automatic plan.")
-        if (topic.isProblem) Text("Hard, Good or Easy records a completed solution. Again keeps an unsolved problem in progress. Each problem keeps its own review history.", style = MaterialTheme.typography.bodyMedium)
-        ChoiceField("Understanding", rating.name, Rating.entries.toTypedArray().choices()) { rating = Rating.valueOf(it) }
-    } }
+    practice?.let { topic ->
+        if (topic.isProblem) ProblemAttemptDialog(vm, topic, onClose = { practice = null })
+        else EditorDialog("Record extra study", { practice = null }, {
+            vm.action("Study recorded") { vm.repository.extraPractice(topic, rating, if (topic.learned) topic.reviewMinutes else topic.newMinutes) }; practice = null
+        }, "Record") {
+            Text(topic.title, style = MaterialTheme.typography.titleLarge)
+            Text("Records a full study session. Manual practice counts toward today's total even when it exceeds the automatic plan.")
+            ChoiceField("Understanding", rating.name, Rating.entries.toTypedArray().choices()) { rating = Rating.valueOf(it) }
+        }
+    }
 }
 
 @Composable fun AssessmentScreen(vm: PlannerViewModel, state: AppState, id: String, edit: (Assessment) -> Unit) {

@@ -9,6 +9,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import dev.stillday.app.PlannerViewModel
 import dev.stillday.app.data.AppState
 import dev.stillday.domain.*
@@ -95,18 +97,31 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
         }
         when (tab) {
             0 -> {
-                MealDefaults(vm, state.preferences)
                 SectionTitle("Meal timing", "Edit times") { open(Forms.mealTiming(vm)) }
                 Text("${state.preferences.mealMinutes} minutes per meal · weekly times below override your defaults.", style = MaterialTheme.typography.bodyMedium)
                 SectionTitle("Weekly hall menu")
                 ChoiceField("Day", weekday.toString(), weekdayChoices) { weekday = it.toInt() }
+                Text("Each switch applies only to this weekday and repeats every week. Open a meal to edit its menu and time.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 listOf("Breakfast", "Lunch", "Dinner").forEach { slot ->
                     val meal = s.meals.find { it.weekday == weekday && it.slot == slot }
-                    val skipped = when (meal?.defaultPlan) { MealDefault.SKIP -> true; MealDefault.EAT -> false; else -> slot in state.preferences.skippedMeals }
+                    val skipped = meal?.defaultPlan == MealDefault.SKIP
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActivityCard(slot, if (skipped) "Skipped every ${DayOfWeek.of(weekday).name.pretty()}" else meal?.food?.ifBlank { "Menu not set" } ?: "Set your hall menu",
                         if (skipped) ActivityCategory.REST else ActivityCategory.MEAL, time = meal?.time,
-                        badge = if (meal != null && meal.defaultPlan != MealDefault.FOLLOW_DEFAULT) "Weekday exception" else "Weekly meal",
+                        badge = "Weekly meal", modifier = Modifier.weight(1f),
                         status = if (skipped) "Skipped" else null, onClick = { open(Forms.meal(vm, weekday, slot, meal)) })
+                    val selectedDay = weekday
+                    Switch(!skipped, { eat ->
+                        vm.edit("Weekly meal updated") { current ->
+                            val old = current.meals.find { it.weekday == selectedDay && it.slot == slot }
+                            val time = when (slot) { "Lunch" -> state.preferences.lunchTime; "Dinner" -> state.preferences.dinnerTime; else -> state.preferences.breakfastTime }
+                            val row = (old ?: MealTemplate(weekday = selectedDay, slot = slot, time = time, food = ""))
+                                .copy(defaultPlan = if (eat) MealDefault.EAT else MealDefault.SKIP)
+                            current.copy(meals = current.meals.filterNot { it.id == row.id } + row)
+                        }
+                    }, modifier = Modifier.semantics { contentDescription = "Eat " + slot.lowercase() + " every " + DayOfWeek.of(selectedDay).name.pretty() })
+                    }
                 }
                 SectionTitle("Meal overrides", "Add") { open(Forms.mealOverride(vm)) }
                 s.mealOverrides.sortedByDescending { it.date }.forEach { meal ->
@@ -114,7 +129,7 @@ private data class CalendarItem(val time: String, val title: String, val subtitl
                         Text("${dateLabel(meal.date)} · ${meal.slot}", style = MaterialTheme.typography.titleMedium)
                         CategoryBadge(ActivityCategory.MEAL, "One day only")
                         Text(when (meal.action) { MealAction.SKIP -> "Not eating"; MealAction.OUTSIDE -> "Eating outside"; MealAction.DIFFERENT -> meal.food; MealAction.EAT -> "Eating as usual" })
-                        TextButton(onClick = { vm.edit("Override removed") { it.copy(mealOverrides = it.mealOverrides.filterNot { row -> row.id == meal.id }) } }) { Text("Use location-based meal") }
+                        TextButton(onClick = { vm.edit("Override removed") { it.copy(mealOverrides = it.mealOverrides.filterNot { row -> row.id == meal.id }) } }) { Text("Use weekly plan") }
                     }
                 }
                 Text("Hall meals apply while you're at university. Travel changes your location automatically, and a specific meal override always wins.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -13,7 +13,7 @@ Android confirmation is deliberately required. This is an in-app download/instal
 
 Android or Play Protect may show additional checks or an unknown-developer warning for a sideloaded APK. Stillday does not disable or skip those system checks.
 
-The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The widget rendering fix uses **versionCode 13 / versionName 1.0.11**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 13.
+The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The current build uses **versionCode 14 / versionName 1.0.12**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 14.
 
 ## Choose and preserve the signing identity
 
@@ -44,12 +44,12 @@ Paste into the GitHub secret, then clear the clipboard. The workflow restores th
 
 ## Publish each update
 
-1. Increase `versionCode` in `app/build.gradle.kts` for every distributable update. The current build is code **13**, name **1.0.11**; its release tag is `v1.0.11`. Commit the app changes and both workflow files, then push to `main`. For a later update use a higher code, for example **14**, name **1.0.12**.
+1. Increase `versionCode` in `app/build.gradle.kts` for every distributable update. The current build is code **14**, name **1.0.12**; its release tag is `v1.0.12`. Commit the app changes and both workflow files, then push to `main`. For a later update use a higher code, for example **15**, name **1.0.13**.
 2. Create and push a tag exactly matching `v` plus `versionName`:
 
    ```sh
-   git tag v1.0.11
-   git push origin v1.0.11
+   git tag v1.0.12
+   git push origin v1.0.12
    ```
 
 3. Open **Actions → Signed APK release**. It runs domain and app JVM tests, lint, builds a signed release APK, verifies its signature and actual metadata, and creates a **draft** release containing `Stillday.apk`, `update.json`, and `SHA256SUMS.txt`.
@@ -65,7 +65,7 @@ The regular **Android build** workflow still runs on pushes and pull requests wi
 Build a signed APK with the same key and run this with JDK 17 and Android SDK 36 configured:
 
 ```powershell
-python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.11
+python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.12
 ```
 
 Upload all three generated files from `artifacts/release/` to a published, latest GitHub release. The script extracts the real version code/name/minimum SDK from the signed APK and calculates its checksum; never hand-edit `update.json` to describe a different APK.
@@ -84,3 +84,5 @@ python scripts/prepare-update-tests.py
 The fixture script temporarily builds a higher version through a Gradle property, restores the normal build, and generates a disposable test-only key under ignored `.tools/`. Generated APK fixtures are ignored build output. Real-APK tests report skipped when fixtures are absent. The permission-explanation UI test needs a fresh install with install-from-this-source permission still disabled; it skips when permission is already granted, because revoking it during instrumentation makes Android kill the running target. Native installation tests are explicitly opt-in because accepting the native installer replaces the running test target. See [TEST_REPORT.md](TEST_REPORT.md) for completed checks and device limits.
 
 The security boundary is Android's signing identity, in addition to HTTPS and checksum checks. The current implementation requires the exact current signing-certificate set; signing-key rotation is not supported.
+
+For the repaired public v1.0.11 release, duplicate drafts and signing-channel details, see [release repair](RELEASE_REPAIR.md). A current build 13 installation should now report that it is up to date.

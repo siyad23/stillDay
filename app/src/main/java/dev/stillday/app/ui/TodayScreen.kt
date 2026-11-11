@@ -112,6 +112,10 @@ import java.time.format.DateTimeFormatter
 }
 
 @Composable fun StudyDialog(vm: PlannerViewModel, item: StudyItem, onClose: () -> Unit) {
+    if (item.topic.isProblem) {
+        ProblemAttemptDialog(vm, item.topic, item, onClose)
+        return
+    }
     var selected by remember { mutableStateOf(Rating.GOOD) }
     var minutes by remember { mutableStateOf(item.minutes.toString()) }
     var error by remember { mutableStateOf<String?>(null) }

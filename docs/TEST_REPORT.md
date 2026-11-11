@@ -2,9 +2,25 @@
 
 Latest test date: 11 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.11**, version code **13**, using native Android rendering for both home-screen widgets. Earlier exam, visual-system, day-planning, lab-type, navigation, updater and 1.1 feature checks below are retained as historical verification, not the current Android version-code ordering.
+Current development APK: version **1.0.12**, version code **14**, with weekday-specific meal skips and number-only exercise/example entry. Database schema remains 7. Earlier widget, exam, visual-system, day-planning, lab-type, navigation and updater results below are historical verification, not a claim that the full device suite was rerun for this build.
 
-## Both widgets: native rendering and first placement
+## Published GitHub update channel repair
+
+The public v1.0.11/build 13 release was missing update.json; its complete signed assets were confined to a separate unpublished draft. Metadata generated from the exact public APK is now attached to the public release. The draft and public APK certificates differ, so the APK was retained rather than substituted. The live app transport verifies UpToDate for build 13 and Available for build 12. No phone installation or app data changes are required to repair this metadata error.
+
+Current JVM verification: **153 passed (129 domain + 24 app)**, including the explicitly enabled network check. Four Python release-asset checks and actionlint also pass. The previously verified five targeted Pixel 7 UI checks remain applicable because this repair changes release configuration, metadata generation and tests; it does not change the app's production code. See [release repair](RELEASE_REPAIR.md).
+
+## Weekday meals and problem attempts
+
+Eight domain meal checks cover recurring Wednesday lunch without affecting nearby days or other meals, released planner time, one-date Eat/Skip/Outside/Different overrides, restored menus, legacy global settings and JSON round trips. The old global skip preference is ignored and omitted from new backups; existing weekday plans remain intact.
+
+Five new problem checks cover a seven-minute completed solution, unfinished work beyond the provisional estimate, accumulated attempts, independent problems, failed-review spacing and invalid inputs. Both chapter and Today now share the solve-attempt dialog. The actual time entered counts toward the daily total; difficulty and the next-attempt estimate update future suggestions. Unfinished problems retain progress.
+
+Five targeted device checks cover number-only exercise/example creation, solved and unfinished attempts, renaming without losing history, backup restoration, the Today recording path with actual time beyond its estimate, Wednesday-only lunch skips with a dated exception, activity navigation and existing problem/syllabus selection. One optional visual-system fixture is skipped. Two initial meal-test failures came from an ambiguous dropdown selector and tapping before the update snackbar cleared; both test synchronization issues were corrected.
+
+All **151 JVM tests (129 domain + 22 app)** pass. Debug/release APK builds and lint are checked. The release-compiled local test APK uses the laptop's development key; no GitHub release was published. Pixel 7 screenshots use synthetic demo records. See [meal and problem tracking](MEALS_AND_PROBLEMS.md).
+
+## Historical 1.0.11 widget verification
 
 Both providers now use standard Android AppWidgetProvider and RemoteViews. Add Quiz has a native initial layout and direct PendingIntent; the agenda uses a bound RemoteViews collection service with individually loaded rows. Glance rendering dependencies have been removed. Refreshes go directly to the provider instead of enqueueing widget rendering jobs, and the provider names stay unchanged for existing placements. Displayed dates, themes, translucent backgrounds, category colors and event routes are preserved.
 
@@ -32,7 +48,7 @@ Final verification tasks (using the project-local JDK 17 and Android SDK):
 | Check | Result |
 | --- | --- |
 | Debug APK build and signing | Passed |
-| Core JVM tests | 124 passed, 0 failures |
+| Core JVM tests | Current 1.0.12: 129 passed, 0 failures |
 | App JVM release-source/navigation/visual-contrast/legacy-backup/widget tests | 22 passed, 0 failures |
 | Android UI/persistence/reminder/migration/updater/widget/navigation/lab/alarm/meal/exam tests | Previous 1.0.9 full suite: 48 passed, 0 failures, 6 opt-in skips; current widget fix: 7 targeted checks plus the isolated cold-process check passed |
 | Android lint | 0 errors; 18 warnings and 3 hints, covering dependency updates and existing style suggestions |
@@ -53,7 +69,7 @@ Two new app JVM tests verify old backup room conversion and preserve explicitly 
 
 The ordinary device run contains 54 unique cases: **48 passed and six opt-in fixtures skipped**, with no failures or errors. All three wake-alarm checks passed in this run. Gradle's progress display counts skip events twice; totals here come from the JUnit XML. The opt-in fixtures cover four screenshot sets and two native installer checks. The new exam screenshot fixture also runs separately with synthetic data.
 
-## Activity visual system and meal defaults
+## Historical activity visual system and meal defaults
 
 Eight core checks cover everyday skipping across a full week, weekday Eat/Skip exceptions, dated Eat/Skip/Outside/Different overrides, retained meals at home, old serialized defaults and round-trip settings. Skipped meals reserve no time in the automatic day plan.
 

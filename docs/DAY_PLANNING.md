@@ -29,7 +29,7 @@ Set default breakfast, lunch and dinner times and **minutes per meal** under Mea
 
 A weekly hall meal's time overrides the default. A dated meal override can set a different time, including when eating outside. A skipped meal releases its time. Travel still determines which meal description applies; home food remains flexible.
 
-Under **Life → Meals → Everyday defaults**, switch off a meal to skip it every day. The Meal timing editor also has Eat/Skip defaults. In a weekly meal, choose **Use everyday default**, **Eat this weekday** or **Skip this weekday**. A dated change always wins; choose **I will eat as usual** to eat on one date when you normally skip that meal. Existing weekly menus follow the everyday default after migration. Skipped meals stay marked in the menu and reserve no time in the day plan.
+Under **Life > Meals**, choose a weekday, then switch off the meal to skip it every week on that day. For example, select Wednesday and switch off Lunch. Other weekdays and meals stay unchanged. Open the meal to edit its menu, time or weekly Eat/Skip plan. A dated override always wins; choose **I will eat as usual** to restore just one date. The former everyday skip setting is removed and ignored when loading old settings or backups. Existing weekday rules are retained. Skipped meals stay marked in the menu and reserve no time in the day plan.
 
 Activity colors and icons are shared across Today, Calendar, University, Projects, Life and the agenda widget. Prayer is violet, study sage, classes blue and projects amber. Today previews its next activities immediately, and expands the remainder on request. See [the visual system](UX_SYSTEM.md).
 

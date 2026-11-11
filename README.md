@@ -57,7 +57,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today. Back restores the actual previous page, its selected section and scroll position.
 - Lab experiments with independent prework/report statuses and submission deadlines, including overdue tracking, Calendar/widget entries and reminders; pending lab work appears on Today.
 - [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
-- Weekly hall meals, everyday Eat/Skip defaults, weekday exceptions, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
+- Weekly hall meals with Eat/Skip rules for each weekday and meal, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
 - One-off and bounded recurring routines with start/end times or durations, completion, skipping, and individual rescheduling.
 - Dynamic study/project time around routines, travel, classes, meals, five manually timed prayers and sleep. Adjustable 50/50 split, ten-minute class buffers, and relaxation gaps under thirty minutes.
 - Fajr-based wake-up and bedtime, plus an optional automatic wake alarm with maximum alarm volume, snooze/dismiss controls and a separate Clock backup shortcut.
@@ -76,6 +76,8 @@ Automatic day planning derives the study budget from remaining free time, shared
 The repetition engine uses an SM-2 adaptation with Again/Hard/Good/Easy feedback. Difficulty seeds the initial ease factor; subsequent understanding ratings adjust it. Each topic maintains independent repetition state. Failed recall restarts at one day, successful reviews expand the interval, and exam preparation adds a separate review opportunity before an assessment. A topic is automatically offered at most once daily. Long sessions are broken into at most 20-minute blocks and retain partial progress. Hard feedback also counts completed work toward the difficult-work allowance.
 
 Course rotation and deferral history spread attention across topics. Missed days never increase the next day's time budget. Completed study remains counted when the plan is recalculated. Manual chapter study and extra practice can exceed the automatic budget because they record work you explicitly chose to do.
+
+Exercises and example problems need only a problem number when added. Record the result, actual minutes, difficulty and next-attempt estimate after trying one. See [meal and problem tracking](docs/MEALS_AND_PROBLEMS.md).
 
 Exercises and example problems share the same daily time budget and difficult-work cap as topics. Partial or unsuccessful solve sessions leave a problem In progress; a completed Hard/Good/Easy session marks it Solved. A later failed review changes understanding and the next review date while preserving the historical fact that it was solved. Studying a chapter's concepts does not complete its problems: bulk chapter study selects topics by default, and you explicitly select any exercises/examples you also solved.
 

@@ -58,7 +58,9 @@ object StudyPlanner {
                 else -> return@mapNotNull null
             }
             val totalMinutes = if (kind == StudyKind.NEW) topic.newMinutes else topic.reviewMinutes
-            val minutes = min(20, (totalMinutes - topic.progressMinutes).coerceAtLeast(1))
+            val outstanding = if (topic.isProblem && !topic.learned && topic.practiceStatus == PracticeStatus.IN_PROGRESS)
+                topic.reviewMinutes else (totalMinutes - topic.progressMinutes).coerceAtLeast(1)
+            val minutes = min(20, outstanding)
             val deferrals = plansByTopic[topic.id].orEmpty().filter { !it.completed && !it.skipped &&
                 it.date.date().isBefore(date) && (topic.lastStudied == null || it.date > topic.lastStudied) }.map { it.date }.distinct().size
             val overdue = if (due != null) max(0, ChronoUnit.DAYS.between(due, date)).toDouble() / max(1, topic.intervalDays) else 0.0
@@ -158,19 +160,20 @@ object StudyPlanner {
             deferred, warnings.distinct(), focus, (newPool + reviewPool).map { it.topic.id })
     }
 
-    fun recordReview(topic: Topic, date: LocalDate, rating: Rating, minutes: Int, kind: StudyKind): Pair<Topic, ReviewEvent> {
+    fun recordReview(topic: Topic, date: LocalDate, rating: Rating, minutes: Int, kind: StudyKind, sessionComplete: Boolean? = null): Pair<Topic, ReviewEvent> {
         require(minutes in 1..1440)
         val baselineEase = if (!topic.learned && topic.repetitions == 0) 2.65 - 0.15 * topic.difficulty else topic.ease
         val observedDifficult = difficult(topic) || rating in listOf(Rating.AGAIN, Rating.HARD)
         val needed = if (!topic.learned) topic.newMinutes else topic.reviewMinutes
         val progress = topic.progressMinutes + minutes
+        val finished = sessionComplete ?: (progress >= needed)
         val practiceStatus = when {
             !topic.isProblem -> PracticeStatus.NOT_STARTED
             topic.practiceStatus == PracticeStatus.SOLVED -> PracticeStatus.SOLVED
-            progress >= needed && rating != Rating.AGAIN -> PracticeStatus.SOLVED
+            finished && rating != Rating.AGAIN -> PracticeStatus.SOLVED
             else -> PracticeStatus.IN_PROGRESS
         }
-        if (progress < needed) return topic.copy(progressMinutes = progress, lastRating = rating, ease = baselineEase, practiceStatus = practiceStatus) to
+        if (!finished) return topic.copy(progressMinutes = progress, lastRating = rating, ease = baselineEase, practiceStatus = practiceStatus) to
             ReviewEvent(topicId = topic.id, date = date.toString(), rating = rating, minutes = minutes, kind = kind, finished = false, difficult = observedDifficult)
         val q = rating.grade
         val ease = (baselineEase + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)).coerceAtLeast(1.3)

@@ -136,25 +136,6 @@ internal fun activityPalette(category: ActivityCategory, colors: ColorScheme): A
     }
 }
 
-@Composable fun MealDefaults(vm: dev.stillday.app.PlannerViewModel, preferences: Preferences) {
-    SectionTitle("Everyday defaults")
-    QuietCard {
-        CategoryHeading(ActivityCategory.MEAL, "Meals you usually eat")
-        listOf("Breakfast", "Lunch", "Dinner").forEach { slot ->
-            val eat = slot !in preferences.skippedMeals
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text(slot, style = MaterialTheme.typography.titleMedium)
-                    Text(if (eat) "Eat by default" else "Skip by default", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(eat, { enabled -> vm.preferences { it.copy(skippedMeals = if (enabled) it.skippedMeals - slot else it.skippedMeals + slot) } },
-                    modifier = Modifier.semantics { contentDescription = slot + " by default" })
-            }
-        }
-        Text("Every day. Weekly exceptions and dated changes take priority.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
 @Composable fun ThemeOption(choice: ThemeChoice, title: String, selected: Boolean, onSelect: () -> Unit) {
     val preview = stilldayColorScheme(choice, isSystemInDarkTheme())
     Surface(color = if (selected) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceContainer,

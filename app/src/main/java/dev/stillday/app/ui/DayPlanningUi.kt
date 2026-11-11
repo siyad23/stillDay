@@ -73,9 +73,9 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}â€
     QuietCard {
         CategoryHeading(ActivityCategory.MEAL, "Your usual meals")
         listOf("Breakfast" to p.breakfastTime, "Lunch" to p.lunchTime, "Dinner" to p.dinnerTime).forEach { (slot, time) ->
-            ItemRow(slot, time, if (slot in p.skippedMeals) "Skip by default" else "${p.mealMinutes} min")
+            ItemRow(slot, time, "${p.mealMinutes} min")
         }
-        Text("Weekday plans and dated changes take priority.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Choose weekday meal skips under Life â†’ Meals. Dated changes take priority.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     SectionTitle("Prayers & wake-up", "Set times") { open(Forms.prayers(vm)) }
     QuietCard {

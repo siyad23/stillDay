@@ -57,7 +57,6 @@ data class Preferences(
     val fallbackWakeTime: String = "07:00",
     val wakeAlarmEnabled: Boolean = false,
     val highAlarmVolume: Boolean = true,
-    val skippedMeals: Set<String> = emptySet(),
     val manualStudyDate: String? = null,
     val manualStudyTopicIds: List<String> = emptyList(),
     val manualStudyHardCap: Boolean = true

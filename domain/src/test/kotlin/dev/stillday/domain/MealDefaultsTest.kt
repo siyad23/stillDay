@@ -7,69 +7,53 @@ import org.junit.Test
 import java.time.LocalDate
 
 class MealDefaultsTest {
-    private val day = LocalDate.of(2026, 11, 10)
-    private val template = MealTemplate("meal", 2, "Breakfast", "08:00", "Egg and bread")
-    private val data = Snapshot(meals = listOf(template))
-    private fun breakfast(s: Snapshot = data, p: Preferences = Preferences()) = LifeResolver.meals(day, s, p).first()
-
-    @Test fun everydaySkipAppliesAcrossTheWeekAndReleasesAllBreakfastTime() {
-        val p = Preferences(skippedMeals = setOf("Breakfast"))
-        repeat(7) { offset ->
-            val date = day.plusDays(offset.toLong())
-            assertTrue(LifeResolver.meals(date, data, p).first().skipped)
-            assertTrue(DayPlanner.build(date, data, p).blocks.none { it.kind == DayBlockKind.MEAL && it.title == "Breakfast" })
-        }
-        assertFalse(LifeResolver.meals(day, data, p)[1].skipped)
-    }
-    @Test fun weekdayEatingOverridesEverydaySkipOnlyOnThatWeekday() {
-        val s = data.copy(meals = listOf(template.copy(defaultPlan = MealDefault.EAT)))
-        val p = Preferences(skippedMeals = setOf("Breakfast"))
-        assertFalse(breakfast(s, p).skipped)
-        assertTrue(LifeResolver.meals(day.plusDays(1), s, p).first().skipped)
-        assertFalse(LifeResolver.meals(day.plusWeeks(1), s, p).first().skipped)
-    }
-    @Test fun weekdaySkippingRepeatsWithoutSkippingOtherDays() {
-        val s = data.copy(meals = listOf(template.copy(defaultPlan = MealDefault.SKIP)))
-        assertTrue(breakfast(s).skipped)
-        assertFalse(LifeResolver.meals(day.plusDays(1), s).first().skipped)
-        assertTrue(LifeResolver.meals(day.plusWeeks(1), s).first().skipped)
-    }
-    @Test fun datedEatWinsOverGlobalAndWeeklySkippingAndReservesItsManualTime() {
-        val s = data.copy(meals = listOf(template.copy(defaultPlan = MealDefault.SKIP)), mealOverrides = listOf(
-            MealOverride(date = day.toString(), slot = "Breakfast", action = MealAction.EAT, time = "09:15")))
-        val p = Preferences(skippedMeals = setOf("Breakfast"), mealMinutes = 25)
-        val meal = breakfast(s, p)
-        assertFalse(meal.skipped); assertEquals("Egg and bread", meal.description); assertEquals("09:15", meal.time)
-        val block = DayPlanner.build(day, s, p).blocks.single { it.kind == DayBlockKind.MEAL && it.title == "Breakfast" }
-        assertEquals(25, block.minutes); assertEquals("09:15", block.start.toLocalTime().toString())
-        assertTrue(LifeResolver.meals(day.plusWeeks(1), s, p).first().skipped)
-    }
-    @Test fun datedSkipWinsOverWeeklyEatingAndRemovingItRestoresTheDefault() {
-        val s = data.copy(meals = listOf(template.copy(defaultPlan = MealDefault.EAT)),
-            mealOverrides = listOf(MealOverride(date = day.toString(), slot = "Breakfast", action = MealAction.SKIP)))
-        assertTrue(breakfast(s).skipped)
-        assertFalse(breakfast(s.copy(mealOverrides = emptyList())).skipped)
-    }
-    @Test fun OutsideAndDifferentFoodRestoreMealsThatAreUsuallySkipped() {
-        val p = Preferences(skippedMeals = setOf("Breakfast"))
-        listOf(MealAction.OUTSIDE, MealAction.DIFFERENT).forEach { action ->
-            val s = data.copy(mealOverrides = listOf(MealOverride(date = day.toString(), slot = "Breakfast", action = action, food = "Fruit")))
-            assertFalse(breakfast(s, p).skipped)
+    private val day = LocalDate.of(2026,11,11)
+    private val meal = MealTemplate("m", 3, "Lunch", "13:00", "Rice", MealDefault.SKIP)
+    private val data = Snapshot(meals = listOf(meal))
+    private fun lunch(date: LocalDate = day, s: Snapshot = data) = LifeResolver.meals(date,s)[1]
+    @Test fun wednesdayLunchRepeatsWithoutSkippingOtherMealsOrWeekdays() {
+        repeat(4) { week ->
+            val date = day.plusWeeks(week.toLong())
+            assertTrue(lunch(date).skipped)
+            assertFalse(lunch(date.minusDays(1)).skipped)
+            assertFalse(lunch(date.plusDays(1)).skipped)
+            assertFalse(LifeResolver.meals(date,data).first().skipped)
+            assertFalse(LifeResolver.meals(date,data).last().skipped)
         }
     }
-    @Test fun defaultsApplyAtHomeAndOldBackupsKeepEatingUntilConfigured() {
-        val home = data.copy(travel = listOf(TravelLeg(destination = Place.HOME, departure = "2026-11-09T12:00", arrival = "2026-11-09T15:00")))
-        assertTrue(breakfast(home, Preferences(skippedMeals = setOf("Breakfast"))).skipped)
-        assertEquals("Home meal · flexible", breakfast(home).description)
-        assertTrue(Json.decodeFromString<Preferences>("{}").skippedMeals.isEmpty())
-        val old = Json.decodeFromString<MealTemplate>("""{"id":"m","weekday":2,"slot":"Breakfast","time":"08:00","food":"Egg"}""")
-        assertEquals(MealDefault.FOLLOW_DEFAULT, old.defaultPlan)
+    @Test fun skippedWeekdayReleasesOnlyThatMealsTime() {
+        assertTrue(DayPlanner.build(day,data,Preferences()).blocks.none { it.kind==DayBlockKind.MEAL && it.title=="Lunch" })
+        assertTrue(DayPlanner.build(day.plusDays(1),data,Preferences()).blocks.any { it.kind==DayBlockKind.MEAL && it.title=="Lunch" })
     }
-    @Test fun serializationPreservesGlobalAndWeeklyRulesAndRejectsUnknownDefaults() {
-        val prefs = Preferences(skippedMeals = setOf("Breakfast", "Dinner"))
-        assertEquals(prefs, Json.decodeFromString<Preferences>(Json.encodeToString(prefs)))
-        val meal = template.copy(defaultPlan = MealDefault.SKIP)
-        assertEquals(meal, Json.decodeFromString<MealTemplate>(Json.encodeToString(meal)))
-        assertThrows(IllegalArgumentException::class.java) { Validation.preferences(Preferences(skippedMeals = setOf("Unknown meal"))) }
+    @Test fun datedEatingRestoresOnlyOneSkippedWednesday() {
+        val s=data.copy(mealOverrides=listOf(MealOverride(date=day.toString(),slot="Lunch",action=MealAction.EAT,time="14:15")))
+        assertFalse(lunch(s=s).skipped); assertEquals("14:15",lunch(s=s).time)
+        assertTrue(lunch(day.plusWeeks(1),s).skipped)
+    }
+    @Test fun datedOutsideAndDifferentFoodOverrideTheWeekdaySkip() {
+        listOf(MealAction.OUTSIDE,MealAction.DIFFERENT).forEach { action ->
+            assertFalse(lunch(s=data.copy(mealOverrides=listOf(MealOverride(date=day.toString(),slot="Lunch",action=action,food="Fruit")))).skipped)
+        }
+    }
+    @Test fun datedSkipDoesNotCreateARecurringRule() {
+        val s=Snapshot(mealOverrides=listOf(MealOverride(date=day.toString(),slot="Lunch",action=MealAction.SKIP)))
+        assertTrue(lunch(s=s).skipped); assertFalse(lunch(day.plusWeeks(1),s).skipped)
+    }
+    @Test fun removingWeeklySkipKeepsItsMenuAndRestoresEating() {
+        val edited=meal.copy(defaultPlan=MealDefault.EAT)
+        assertFalse(lunch(s=data.copy(meals=listOf(edited))).skipped)
+        assertEquals("Rice",lunch(s=data.copy(meals=listOf(edited))).description)
+    }
+    @Test fun oldEverydayPreferenceIsIgnoredAndOldTemplatesMeanEat() {
+        val json=Json { ignoreUnknownKeys=true }
+        val p=json.decodeFromString<Preferences>("""{"skippedMeals":["Breakfast","Lunch","Dinner"]}""")
+        assertTrue(LifeResolver.meals(day,Snapshot(),p).none { it.skipped })
+        val old=json.decodeFromString<MealTemplate>("""{"id":"m","weekday":3,"slot":"Lunch","time":"13:00","food":"Rice"}""")
+        assertFalse(lunch(s=Snapshot(meals=listOf(old))).skipped)
+        assertFalse(Json.encodeToString(p).contains("skippedMeals"))
+    }
+    @Test fun weeklyAndDatedRulesRoundTripWithoutEverydaySettings() {
+        val s=data.copy(mealOverrides=listOf(MealOverride(date=day.toString(),slot="Lunch",action=MealAction.EAT)))
+        assertEquals(s,Json.decodeFromString<Snapshot>(Json.encodeToString(s)))
     }
 }

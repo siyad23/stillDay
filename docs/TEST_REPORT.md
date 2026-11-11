@@ -2,7 +2,16 @@
 
 Latest test date: 11 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.13**, version code **15**, with Google Drive automatic backup. Database schema remains 7. Prior feature results below are retained as historical verification; see the current scope immediately below.
+Current development APK: version **1.0.14**, version code **16**, with corrected dark themes and actual transparency in both home-screen widgets. Database schema remains 7. Earlier Drive and planner checks below are historical verification.
+
+## Widget dark themes and real transparency
+
+All **180 JVM tests pass (129 domain + 51 app)**; one optional live-GitHub check is skipped. Debug/release builds and lint pass.
+
+The Pixel 7/API 36 widget run contains thirteen cases: **eleven passed and two opt-in fixtures skipped**. New checks render actual native drawables and sample pixel RGB/alpha for both widgets in every theme and both system modes. They verify cached System RemoteViews changing light/dark/light without regenerating colors, cached dark agenda rows and date chips, and dark initial layouts before provider loading. A Charcoal/Midnight native comparison is captured and visually inspected. Pixel assertions test alpha around 230/255 for outer backgrounds, 235/255 for activity cards and 224/255 for date chips, with opaque theme RGB rather than white-blended colors.
+
+The real-host shortcut check replaces a legacy layout on the same widget ID, verifies re-inflation and its actual Add Quiz PendingIntent, then changes the saved app theme and waits for its text to update to Midnight. Existing populated/compact/busy agenda, overflow navigation, first placement, nonblocking startup and Binder-size checks also pass. The skipped cases are launcher capture and the isolated cold-process fixture. No new launcher screenshot or physical-device check is claimed for this change. See [widgets](WIDGETS.md) for the native comparison and compatibility details.
+
 
 ## Google Drive automatic backup
 

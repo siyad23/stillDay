@@ -21,3 +21,19 @@ Demo screenshots are captured from the real Pixel 7 emulator launcher using synt
 <img src="screenshots/widget-fixed-home.png" alt="Fixed agenda widget on the Pixel 7 home screen with synthetic prayer, project and study activities" width="300" />
 
 <img src="screenshots/widget-quiz-home.png" alt="Native Add Quiz widget on the Pixel 7 launcher with its translucent rounded surface" width="300" />
+
+## Dark-theme correction in 1.0.14
+
+Both agenda and Add Quiz follow the selected app theme, including Charcoal, Midnight and System dark mode. The old shortcut had fixed light colors. The agenda also used translucent color filters over white shapes, which blended white into the tint instead of making the view itself translucent.
+
+The widgets now apply opaque theme colors to opaque drawable masks and set actual image opacity separately: approximately 90% for the outer surface, 92% for activity cards and 88% for date chips. Text stays opaque. Updated masks are reapplied to existing views, and Add Quiz uses a new layout ID so already-placed shortcuts are reinflated without retaining their old light root background.
+
+On Android 12 and later, paired day/night RemoteViews colors let cached views and agenda rows adapt when the launcher reapplies them after a system theme change. App configuration changes request a provider refresh, including on older Android versions. Explicit app themes retain their chosen palette regardless of the phone's mode. Native initial layouts and picker previews also have night resources.
+
+Pixel tests cover both widgets in every app theme and both system modes, cached System views switching light/dark/light, cached agenda rows/date chips, and initial night layouts. Real-host checks verify the existing shortcut layout is replaced, tapping still opens Add Quiz, and changing the app theme refreshes that same placed shortcut.
+
+Below are native widget views rendered on the Pixel 7 emulator over a neutral background: Charcoal on the left, Midnight on the right. The agenda uses its empty/setup state; row palettes are verified separately. This comparison is not a launcher screenshot.
+
+<img src="screenshots/widgets-dark-comparison.png" alt="Agenda and Add Quiz widget dark surfaces: Charcoal left, Midnight right" width="700" />
+
+References: [RemoteViews day/night colors](https://developer.android.com/reference/android/widget/RemoteViews#setColorInt(int,%20java.lang.String,%20int,%20int)), [ImageView color filtering and image alpha](https://developer.android.com/reference/android/widget/ImageView).

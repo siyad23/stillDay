@@ -1,4 +1,4 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#EBFFFFFF" />
+    <solid android:color="@color/widget_default_card" />
     <corners android:radius="14dp" />
 </shape>

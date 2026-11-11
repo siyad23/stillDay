@@ -82,6 +82,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
         context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(prefs) }
         mutable.value = mutable.value.copy(preferences = prefs)
         dev.stillday.app.AgendaWidgets.refresh(context)
+        dev.stillday.app.QuizWidgets.refresh(context)
     }
 
     suspend fun setup(title: String, start: LocalDate, expectedEnd: LocalDate) {
@@ -172,6 +173,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
         mutable.value = AppState(backup.data, backup.preferences, true)
         pendingImport.delete()
         dev.stillday.app.AgendaWidgets.refresh(context)
+        dev.stillday.app.QuizWidgets.refresh(context)
     }
 
     /** Finish an authorized import before accepting later edits, even after a transient disk failure. */
@@ -185,6 +187,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
         mutable.value = AppState(backup.data, backup.preferences, true)
         pendingImport.delete()
         dev.stillday.app.AgendaWidgets.refresh(context)
+        dev.stillday.app.QuizWidgets.refresh(context)
     }
 
     suspend fun loadDemo() {

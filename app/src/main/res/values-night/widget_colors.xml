@@ -1,0 +1,8 @@
+<resources>
+    <color name="widget_default_surface">#151917</color>
+    <color name="widget_default_card">#202622</color>
+    <color name="widget_default_variant">#303A33</color>
+    <color name="widget_default_text">#E3E9E2</color>
+    <color name="widget_default_secondary">#B6C1B7</color>
+    <color name="widget_default_accent">#A9C5B0</color>
+</resources>

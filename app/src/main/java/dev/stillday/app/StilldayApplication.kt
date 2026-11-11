@@ -15,4 +15,9 @@ class StilldayApplication : Application() {
         UpdateManager.schedule(this, updates.state.value.automaticChecks)
         driveBackup.start()
     }
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        AgendaWidgets.refresh(this)
+        QuizWidgets.refresh(this)
+    }
 }

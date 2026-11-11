@@ -6,12 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Build
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import androidx.core.net.toUri
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.ColorScheme
 import dev.stillday.app.ui.*
 import dev.stillday.domain.*
 import kotlinx.coroutines.Dispatchers
@@ -23,19 +26,18 @@ import java.util.Locale
 /** Standard Android RemoteViews: no Compose session or background rendering worker is needed. */
 internal object WidgetViews {
     fun agenda(context: Context, id: Int, preferences: Preferences, options: Bundle, month: String): RemoteViews {
-        val colors = colors(context, preferences)
         val compact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180) < 280
         return RemoteViews(context.packageName, R.layout.agenda_widget_native).apply {
-            setInt(R.id.widget_background, "setColorFilter", colors.background.copy(alpha = 0.90f).toArgb())
-            setInt(R.id.widget_add_background, "setColorFilter", colors.surfaceVariant.copy(alpha = 0.85f).toArgb())
-            setInt(R.id.widget_add_icon, "setColorFilter", colors.primary.toArgb())
+            widgetImage(context, preferences, R.id.widget_background, R.drawable.widget_surface, 230) { it.background }
+            widgetImage(context, preferences, R.id.widget_add_background, R.drawable.widget_date, 217) { it.surfaceVariant }
+            widgetImage(context, preferences, R.id.widget_add_icon, R.drawable.ic_widget_add) { it.primary }
             val pad = ((if (compact) 12 else 16) * context.resources.displayMetrics.density).toInt()
             setViewPadding(R.id.widget_content, pad, pad, pad, pad)
             setTextViewText(R.id.widget_month, month)
             setTextViewText(R.id.widget_subtitle, if (preferences.demoData) "Sample · next 7 days" else "stillday · next 7 days")
-            setTextColor(R.id.widget_month, colors.onSurface.toArgb())
-            setTextColor(R.id.widget_subtitle, colors.onSurfaceVariant.toArgb())
-            setTextColor(R.id.widget_empty, colors.onSurface.toArgb())
+            widgetColor(context, preferences, R.id.widget_month, "setTextColor") { it.onSurface }
+            widgetColor(context, preferences, R.id.widget_subtitle, "setTextColor") { it.onSurfaceVariant }
+            widgetColor(context, preferences, R.id.widget_empty, "setTextColor") { it.onSurface }
             setTextViewText(R.id.widget_empty, "Your agenda starts here\nOpen Stillday to add your semester.")
             setViewVisibility(R.id.widget_empty, if (preferences.onboardingComplete) View.GONE else View.VISIBLE)
             setViewVisibility(R.id.widget_agenda_list, if (preferences.onboardingComplete) View.VISIBLE else View.GONE)
@@ -57,8 +59,11 @@ internal object WidgetViews {
         setTextViewText(R.id.widget_empty, "Open Stillday to refresh your agenda.")
     }
 
-    fun quiz(context: Context, id: Int): RemoteViews =
-        RemoteViews(context.packageName, R.layout.quiz_widget_native).apply {
+    fun quiz(context: Context, id: Int, preferences: Preferences = Preferences()): RemoteViews =
+        RemoteViews(context.packageName, R.layout.quiz_widget_themed).apply {
+            widgetImage(context, preferences, R.id.quiz_widget_background, R.drawable.widget_surface, 230) { it.background }
+            widgetColor(context, preferences, R.id.quiz_widget_title, "setTextColor") { it.onSurface }
+            widgetColor(context, preferences, R.id.quiz_widget_subtitle, "setTextColor") { it.onSurfaceVariant }
             setOnClickPendingIntent(R.id.quiz_widget_root, quizIntent(context, id))
         }
 
@@ -71,6 +76,25 @@ internal object WidgetViews {
 
     fun colors(context: Context, preferences: Preferences) = stilldayColorScheme(preferences.theme,
         context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
+}
+
+/** Color-filter alpha blends into the old shape color with SRC_ATOP. Apply opaque RGB and
+ * actual image opacity so wallpaper shows through without a white undertone. */
+private fun RemoteViews.widgetImage(context: Context, preferences: Preferences, id: Int, drawable: Int, alpha: Int = 255,
+    select: (ColorScheme) -> Color) {
+    // Refresh masks cached by the launcher from older APKs as well as their colors.
+    setImageViewResource(id, drawable)
+    widgetColor(context, preferences, id, "setColorFilter") { select(it).copy(alpha = 1f) }
+    setInt(id, "setImageAlpha", alpha)
+}
+
+private fun RemoteViews.widgetColor(context: Context, preferences: Preferences, id: Int, method: String,
+    select: (ColorScheme) -> Color) {
+    if (Build.VERSION.SDK_INT >= 31) {
+        // Cached widget and collection views adapt when the launcher reapplies them in night mode.
+        setColorInt(id, method, select(stilldayColorScheme(preferences.theme, false)).toArgb(),
+            select(stilldayColorScheme(preferences.theme, true)).toArgb())
+    } else setInt(id, method, select(WidgetViews.colors(context, preferences)).toArgb())
 }
 
 class AgendaRemoteViewsService : RemoteViewsService() {
@@ -130,30 +154,28 @@ internal class AgendaViewsFactory(private val context: Context, private val widg
     }
     override fun getCount(): Int = rows.size + if (more) 1 else 0
     override fun getViewAt(position: Int): RemoteViews {
-        val colors = WidgetViews.colors(context, preferences)
         if (position >= rows.size) return RemoteViews(context.packageName, R.layout.agenda_widget_footer).apply {
-            setTextColor(R.id.widget_footer, colors.primary.toArgb())
+            widgetColor(context, preferences, R.id.widget_footer, "setTextColor") { it.primary }
             setOnClickFillInIntent(R.id.widget_footer, Intent().putExtra("widget_route", "Calendar"))
         }
         val row = rows[position]
-        val palette = activityPalette(row.category, colors)
         val locale = context.resources.configuration.locales[0] ?: Locale.getDefault()
         return RemoteViews(context.packageName, R.layout.agenda_widget_row).apply {
-            setInt(R.id.widget_card_background, "setColorFilter", palette.background.copy(alpha = 0.92f).toArgb())
-            setInt(R.id.widget_day_background, "setColorFilter", colors.surfaceVariant.copy(alpha = 0.88f).toArgb())
+            widgetImage(context, preferences, R.id.widget_card_background, R.drawable.widget_card, 235) { activityPalette(row.category, it).background }
+            widgetImage(context, preferences, R.id.widget_day_background, R.drawable.widget_date, 224) { it.surfaceVariant }
             setViewVisibility(R.id.widget_day, if (row.showDate) View.VISIBLE else View.INVISIBLE)
             setViewVisibility(R.id.widget_day_background, if (row.showDate && row.date == today) View.VISIBLE else View.INVISIBLE)
             setTextViewText(R.id.widget_weekday, row.date.format(DateTimeFormatter.ofPattern("EEE", locale)))
             setTextViewText(R.id.widget_date, DisplayDates.format(row.date))
-            setTextColor(R.id.widget_weekday, colors.onSurfaceVariant.toArgb())
-            setTextColor(R.id.widget_date, if (row.date == today) colors.primary.toArgb() else colors.onSurface.toArgb())
+            widgetColor(context, preferences, R.id.widget_weekday, "setTextColor") { it.onSurfaceVariant }
+            widgetColor(context, preferences, R.id.widget_date, "setTextColor") { if (row.date == today) it.primary else it.onSurface }
             setTextViewText(R.id.widget_category, row.category.label)
-            setTextColor(R.id.widget_category, palette.accent.toArgb())
+            widgetColor(context, preferences, R.id.widget_category, "setTextColor") { activityPalette(row.category, it).accent }
             setTextViewText(R.id.widget_title, row.title)
-            setTextColor(R.id.widget_title, colors.onSurface.toArgb())
+            widgetColor(context, preferences, R.id.widget_title, "setTextColor") { it.onSurface }
             setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, if (compact) 14f else 15f)
             setTextViewText(R.id.widget_detail, row.detail)
-            setTextColor(R.id.widget_detail, colors.onSurfaceVariant.toArgb())
+            widgetColor(context, preferences, R.id.widget_detail, "setTextColor") { it.onSurfaceVariant }
             setViewVisibility(R.id.widget_detail, if (row.detail.isBlank()) View.GONE else View.VISIBLE)
             setOnClickFillInIntent(R.id.widget_row, Intent().putExtra("widget_route", row.route))
         }

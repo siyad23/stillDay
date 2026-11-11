@@ -14,25 +14,39 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.stillday.app.ui.AssessmentEditor
 import dev.stillday.app.ui.StilldayTheme
+import kotlinx.coroutines.launch
 
 class QuizWidget {
-    fun update(context: Context, id: Int) {
-        android.appwidget.AppWidgetManager.getInstance(context).updateAppWidget(id, WidgetViews.quiz(context, id))
+    suspend fun update(context: Context, id: Int) {
+        val repository = (context.applicationContext as StilldayApplication).repository
+        repository.initialize()
+        android.appwidget.AppWidgetManager.getInstance(context).updateAppWidget(id, WidgetViews.quiz(context, id, repository.state.value.preferences))
     }
 }
 class QuizWidgetReceiver : android.appwidget.AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: android.appwidget.AppWidgetManager, ids: IntArray) {
-        ids.forEach { QuizWidget().update(context, it) }
+        val pending = goAsync()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO).launch {
+            try { ids.forEach { id ->
+                try { QuizWidget().update(context, id) }
+                catch (error: Exception) {
+                    android.util.Log.e("StilldayWidgets", "Could not refresh quiz shortcut", error)
+                    manager.updateAppWidget(id, WidgetViews.quiz(context, id))
+                }
+            } } finally { pending?.finish() }
+        }
     }
     override fun onAppWidgetOptionsChanged(context: Context, manager: android.appwidget.AppWidgetManager, id: Int, options: Bundle) {
-        QuizWidget().update(context, id)
+        onUpdate(context, manager, intArrayOf(id))
     }
 }
 object QuizWidgets {
     fun refresh(context: Context) {
         val manager = android.appwidget.AppWidgetManager.getInstance(context)
-        manager.getAppWidgetIds(android.content.ComponentName(context, QuizWidgetReceiver::class.java))
-            .forEach { QuizWidget().update(context, it) }
+        val component = android.content.ComponentName(context, QuizWidgetReceiver::class.java)
+        val ids = manager.getAppWidgetIds(component)
+        if (ids.isNotEmpty()) context.sendBroadcast(android.content.Intent(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+            .setComponent(component).putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, ids))
     }
 }
 

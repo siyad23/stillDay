@@ -185,6 +185,23 @@ class WidgetRenderingTest {
                 } catch (e: Exception) { throw AssertionError("Hosted widget did not render its agenda: " + last, e) }
                 assertFalse(last, last.contains("Can't show content", true))
                 if (quiz) {
+                    // Existing placements can hold the older layout. Refresh must reinflate it,
+                    // otherwise its fixed root background survives a RemoteViews reapply.
+                    lateinit var legacyChild: View
+                    instrumentation.runOnMainSync {
+                        view.updateAppWidget(android.widget.RemoteViews(app.packageName, R.layout.quiz_widget_native))
+                        legacyChild = view.getChildAt(0)
+                    }
+                    QuizWidgets.refresh(app)
+                    withTimeout(20_000) {
+                        while (true) {
+                            var replaced = false
+                            instrumentation.runOnMainSync { replaced = view.getChildAt(0) !== legacyChild &&
+                                view.findViewById<View>(R.id.quiz_widget_root)?.hasOnClickListeners() == true }
+                            if (replaced) break
+                            delay(150)
+                        }
+                    }
                     val monitor = instrumentation.addMonitor(QuickQuizActivity::class.java.name, null, false)
                     try {
                         instrumentation.runOnMainSync { assertTrue(view.findViewById<View>(R.id.quiz_widget_root).performClick()) }
@@ -192,6 +209,19 @@ class WidgetRenderingTest {
                         assertNotNull("The widget should open quick quiz entry", activity)
                         instrumentation.runOnMainSync { activity?.finish() }
                     } finally { instrumentation.removeMonitor(monitor) }
+                    // The shortcut used to ignore app theme changes and keep its fixed light palette.
+                    repo.preferences { it.copy(theme = ThemeChoice.MIDNIGHT) }
+                    withTimeout(20_000) {
+                        while (true) {
+                            var themed = false
+                            instrumentation.runOnMainSync {
+                                themed = view.findViewById<TextView>(R.id.quiz_widget_title)?.currentTextColor ==
+                                    0xFFE2E7EF.toInt()
+                            }
+                            if (themed) break
+                            delay(150)
+                        }
+                    }
                 }
                 if (busy) {
                     // Reach the bounded list's end and verify that the remaining calendar is accessible.

@@ -1,14 +1,14 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical"
-    android:background="@drawable/widget_surface" android:backgroundTint="#E6F8F9F5" android:padding="18dp">
+    android:background="@drawable/widget_surface" android:backgroundTint="@color/widget_default_surface" android:padding="18dp">
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/agenda_widget_name"
-        android:textSize="20sp" android:textColor="#242C26" android:fontFamily="sans-serif-medium" />
+        android:textSize="20sp" android:textColor="@color/widget_default_text" android:fontFamily="sans-serif-medium" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/agenda_widget_preview_subtitle"
-        android:textSize="12sp" android:textColor="#626F65" android:layout_marginTop="4dp" android:layout_marginBottom="18dp" />
+        android:textSize="12sp" android:textColor="@color/widget_default_secondary" android:layout_marginTop="4dp" android:layout_marginBottom="18dp" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/agenda_widget_preview_tasks"
-        android:background="@drawable/widget_card" android:backgroundTint="#E2E9DF" android:padding="14dp" android:textSize="14sp" android:textColor="#536F5E" />
+        android:background="@drawable/widget_card" android:backgroundTint="@color/widget_default_variant" android:padding="14dp" android:textSize="14sp" android:textColor="@color/widget_default_accent" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/agenda_widget_preview_class"
-        android:background="@drawable/widget_card" android:backgroundTint="#EEF1E9" android:padding="14dp" android:layout_marginTop="8dp" android:textSize="15sp" android:textColor="#242C26" />
+        android:background="@drawable/widget_card" android:backgroundTint="@color/widget_default_card" android:padding="14dp" android:layout_marginTop="8dp" android:textSize="15sp" android:textColor="@color/widget_default_text" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/agenda_widget_preview_lab"
-        android:background="@drawable/widget_card" android:backgroundTint="#EEF1E9" android:padding="14dp" android:layout_marginTop="8dp" android:textSize="15sp" android:textColor="#242C26" />
+        android:background="@drawable/widget_card" android:backgroundTint="@color/widget_default_card" android:padding="14dp" android:layout_marginTop="8dp" android:textSize="15sp" android:textColor="@color/widget_default_text" />
 </LinearLayout>

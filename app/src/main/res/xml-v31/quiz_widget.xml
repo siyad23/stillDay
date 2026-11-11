@@ -3,5 +3,5 @@
     android:targetCellWidth="2" android:targetCellHeight="1"
     android:updatePeriodMillis="0" android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:initialLayout="@layout/quiz_widget_native"
+    android:initialLayout="@layout/quiz_widget_themed"
     android:description="@string/widget_description" />

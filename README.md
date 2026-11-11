@@ -93,7 +93,7 @@ University schedules use the configured university timezone even if the device t
 
 Displayed dates use `10 Aug, 2026` consistently, including editable fields, reminders and the agenda widget. Date pickers and typed dates both work; database and backup dates retain their ISO format for compatibility and sorting.
 
-Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay reminder delivery. The optional Fajr wake-up alarm uses AlarmManager alarm-clock scheduling and requires notification permission and Alarms & reminders access on recent Android versions. Its lock-screen UI can require full-screen alarm access. Alarm volume changes affect the phone's shared alarm stream; Android DND and device policies still apply. Location is inferred from travel, without location permission. Internet access is used for GitHub release checks and APK downloads; university and personal records stay on the device. Android's install-from-this-source permission is requested only when installing an update.
+Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManager refresh and boot/time-change recovery. Android battery policies can delay reminder delivery. The optional Fajr wake-up alarm uses AlarmManager alarm-clock scheduling and requires notification permission and Alarms & reminders access on recent Android versions. Its lock-screen UI can require full-screen alarm access. Alarm volume changes affect the phone's shared alarm stream; Android DND and device policies still apply. Location is inferred from travel, without location permission. Internet access is used for GitHub updates and optional Google Drive backups. Records remain available locally; connecting Drive uploads your planner backup to your own Google account. Android's install-from-this-source permission is requested only when installing an update.
 
 ## Architecture and tests
 
@@ -111,3 +111,5 @@ The Pixel 7 emulator profile uses 1080 × 2400 pixels at 420 dpi. See `docs/TEST
 ## Repository contents
 
 Source, the Gradle wrapper, Room schema history, tests, and curated screenshots belong in Git. Build output, `.tools`, `.android`, `.gradle`, `.kotlin`, local SDK settings, signing keys, personal backups, and `artifacts/` are ignored. The local APK and verification files remain available on the development machine.
+
+Google Drive automatic backup offers restore-or-create setup, automatic change uploads, checks on app open, offline retries and conflict choices. See [Google Drive backup](docs/GOOGLE_DRIVE.md) for account setup, privacy and verification limits.

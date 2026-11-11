@@ -107,6 +107,7 @@ import java.time.ZoneId
             Text("You can also long-press your home screen → Widgets → Stillday agenda. Resize it to fit your layout. The + button opens Add Quiz.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         UpdateSettings(vm.updates)
+        DriveBackupControls(vm)
         SectionTitle("Backups")
         Text("Backups include all courses, schedules, study history and settings. Save them somewhere you can recover if your phone is lost.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         OutlinedButton(onClick = { export.launch("stillday-${vm.repository.today()}.json") }, modifier = Modifier.fillMaxWidth()) { Text("Export backup") }
@@ -121,6 +122,6 @@ import java.time.ZoneId
         dismissButton = { TextButton(onClick = { importText = null }) { Text("Cancel") } }) }
     if (reset) AlertDialog(onDismissRequest = { reset = false }, title = { Text("Start fresh?") },
         text = { Text("All local records and study history will be erased. Export a backup first to keep a copy.") },
-        confirmButton = { TextButton(onClick = { vm.action { vm.repository.change { Snapshot() }; vm.repository.preferences { it.copy(onboardingComplete = false, demoData = false, notifications = false, manualStudyDate = null, manualStudyTopicIds = emptyList(), manualStudyHardCap = true) }; dev.stillday.app.Reminders.refresh(context, vm.repository) }; reset = false }) { Text("Erase & start again") } },
+        confirmButton = { TextButton(onClick = { vm.action { vm.driveBackup.disconnect(); vm.repository.change { Snapshot() }; vm.repository.preferences { it.copy(onboardingComplete = false, demoData = false, notifications = false, manualStudyDate = null, manualStudyTopicIds = emptyList(), manualStudyHardCap = true) }; dev.stillday.app.Reminders.refresh(context, vm.repository) }; reset = false }) { Text("Erase & start again") } },
         dismissButton = { TextButton(onClick = { reset = false }) { Text("Cancel") } })
 }

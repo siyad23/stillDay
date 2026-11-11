@@ -19,6 +19,10 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
+import dev.stillday.app.backup.BackupContent
+import dev.stillday.app.backup.LocalBackupChangedException
+import android.util.AtomicFile
+import java.io.File
 
 private val Context.settingsStore by preferencesDataStore("stillday_settings")
 val plannerJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
@@ -40,6 +44,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
     private val clock: Clock = Clock.systemUTC()) {
     private val mutex = Mutex()
     private val prefKey = stringPreferencesKey("preferences")
+    private val pendingImport = AtomicFile(File(context.filesDir, "pending-backup-import.json"))
     private val mutable = MutableStateFlow(AppState())
     val state: StateFlow<AppState> = mutable.asStateFlow()
     fun today(): LocalDate = LocalDate.now(clock.withZone(ZoneId.of(mutable.value.preferences.timezone)))
@@ -47,6 +52,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
 
     suspend fun initialize() = mutex.withLock {
         if (!mutable.value.ready) {
+            recoverPendingImport()
             val stored = context.settingsStore.data.first()[prefKey]
             val prefs = stored?.let { plannerJson.decodeFromString<Preferences>(it) } ?: Preferences()
             val data = database.planner().load()
@@ -55,6 +61,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
     }
 
     suspend fun change(transform: (Snapshot) -> Snapshot) = mutex.withLock {
+        recoverPendingImport()
         withContext(Dispatchers.IO) {
             val next = transform(mutable.value.data)
             if (next == mutable.value.data) return@withContext
@@ -68,7 +75,9 @@ class PlannerRepository(private val context: Context, private val database: Plan
     }
 
     suspend fun preferences(transform: (Preferences) -> Preferences) = mutex.withLock {
+        recoverPendingImport()
         val prefs = transform(mutable.value.preferences)
+        if (prefs == mutable.value.preferences) return@withLock
         Validation.preferences(prefs)
         context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(prefs) }
         mutable.value = mutable.value.copy(preferences = prefs)
@@ -143,17 +152,38 @@ class PlannerRepository(private val context: Context, private val database: Plan
     }
 
     suspend fun export(): String = mutex.withLock {
+        recoverPendingImport()
         plannerJson.encodeToString(Backup(exportedAt = now().toString(), preferences = mutable.value.preferences, data = mutable.value.data))
     }
 
-    suspend fun import(text: String) = mutex.withLock {
-        require(text.length <= 20_000_000) { "Backup is too large." }
-        val backup = decodePlannerBackup(text)
-        Validation.backup(backup)
+    suspend fun import(text: String, expectedHash: String? = null) = mutex.withLock {
+        recoverPendingImport()
+        val backup = BackupContent.parse(text).backup
+        if (expectedHash != null && BackupContent.parse(plannerJson.encodeToString(Backup(exportedAt = now().toString(),
+            preferences = mutable.value.preferences, data = mutable.value.data))).hash != expectedHash) throw LocalBackupChangedException()
+        withContext(Dispatchers.IO) {
+            val output = pendingImport.startWrite()
+            try { output.write(text.toByteArray(Charsets.UTF_8)); pendingImport.finishWrite(output) }
+            catch (error: Exception) { pendingImport.failWrite(output); throw error }
+        }
         // Room replacement is a single transaction. Settings are written only after validation succeeds.
         database.planner().replace(backup.data)
         context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(backup.preferences) }
         mutable.value = AppState(backup.data, backup.preferences, true)
+        pendingImport.delete()
+        dev.stillday.app.AgendaWidgets.refresh(context)
+    }
+
+    /** Finish an authorized import before accepting later edits, even after a transient disk failure. */
+    private suspend fun recoverPendingImport() {
+        if (!pendingImport.baseFile.exists()) return
+        val backup = withContext(Dispatchers.IO) {
+            BackupContent.parse(pendingImport.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() }).backup
+        }
+        database.planner().replace(backup.data)
+        context.settingsStore.edit { it[prefKey] = plannerJson.encodeToString(backup.preferences) }
+        mutable.value = AppState(backup.data, backup.preferences, true)
+        pendingImport.delete()
         dev.stillday.app.AgendaWidgets.refresh(context)
     }
 

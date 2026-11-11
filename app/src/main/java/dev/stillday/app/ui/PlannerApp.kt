@@ -53,6 +53,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
     }
     BackHandler(navigation.canGoBack) { navigation = navigation.back() }
     StilldayTheme(state.preferences.theme) {
+        if (state.ready) DriveBackupLifecycle(vm)
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             if (!state.ready) {
                 Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
@@ -130,17 +131,20 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
 
 @Composable private fun Onboarding(vm: PlannerViewModel) {
     var form by remember { mutableStateOf<FormSpec?>(null) }
+    var localSetup by rememberSaveable { mutableStateOf(false) }
+    val drive by vm.driveBackup.state.collectAsStateWithLifecycle()
     Page {
-        Spacer(Modifier.height(64.dp))
+        Spacer(Modifier.height(24.dp))
         Text("stillday", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
         Text("A little less\nto decide.", style = MaterialTheme.typography.displaySmall)
         Text("Your classes, study plan, meals and everyday tasks. One quiet place to know what comes next.",
             style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(20.dp))
-        QuietCard {
+        DriveBackupControls(vm, setup = true)
+        if (localSetup || drive.link != null) QuietCard {
             Text("Start with your semester", style = MaterialTheme.typography.titleLarge)
-            Text("Everything stays on your phone. You can export a backup whenever you need one.", style = MaterialTheme.typography.bodyMedium)
+            Text(if (drive.link != null) "Your semester and future changes will be backed up automatically." else "Your data stays on this device until you connect Google Drive or export a backup.", style = MaterialTheme.typography.bodyMedium)
             Button(onClick = { form = FormSpec("Add your current semester", listOf(
                 FormField("title", "Semester name", helper = "For example, Semester 7 or Year 3 — Semester 1."),
                 FormField("start", "Start date", vm.repository.today().toString()),
@@ -151,7 +155,8 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                 vm.action { vm.repository.setup(title, start, end) }
             } }, modifier = Modifier.fillMaxWidth()) { Text("Add my semester") }
         }
-        OutlinedButton(onClick = { vm.action { vm.repository.loadDemo() } }, modifier = Modifier.fillMaxWidth()) { Text("Explore a sample semester") }
+        if (!localSetup && drive.link == null) TextButton(onClick = { localSetup = true }) { Text("Continue on this device") }
+        OutlinedButton(onClick = { vm.action { vm.driveBackup.disconnect(); vm.repository.loadDemo() } }, modifier = Modifier.fillMaxWidth()) { Text("Explore a sample semester") }
         Text("2h study on regular days · 6h during exam focus\nBoth are adjustable in Settings.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     form?.let { FormEditor(it) { form = null } }

@@ -41,7 +41,7 @@ private fun sizeLabel(bytes: Long): String = String.format(Locale.ROOT, "%.1f MB
             Switch(state.automaticChecks, { updates.setAutomatic(it) })
             Text("  Check automatically", style = MaterialTheme.typography.bodyMedium)
         }
-        Text("Checks GitHub daily when connected. Downloads start when you choose Update now. Your university and personal records are never sent.", style = MaterialTheme.typography.bodyMedium)
+        Text("Checks GitHub daily when connected. Downloads start when you choose Update now. Update checks never send your planner records to GitHub.", style = MaterialTheme.typography.bodyMedium)
         state.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         state.update?.let { update -> Text("Available: ${update.manifest.versionName} · build ${update.manifest.versionCode}", color = MaterialTheme.colorScheme.primary) }
         if (state.lastChecked > 0) {

@@ -159,7 +159,8 @@ class PlannerUiTest {
             repository.change { Snapshot() }
             repository.preferences { it.copy(onboardingComplete = false, demoData = false, reminderSetupDone = true, notifications = false) }
         }
-        rule.onNodeWithText("Add my semester").performClick()
+        rule.onNodeWithText("Continue on this device").performScrollTo().performClick()
+        rule.onNodeWithText("Add my semester").performScrollTo().performClick()
         rule.onNodeWithText("Semester name").performTextInput("Semester 7")
         rule.onNodeWithText("Start date").performTextReplacement("2026-11-09")
         rule.onNodeWithText("Expected end date").performTextInput("2027-03-25")

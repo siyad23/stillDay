@@ -12,8 +12,8 @@ android {
         applicationId = "dev.stillday.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("stilldayVersionCode").map(String::toInt).getOrElse(14)
-        versionName = providers.gradleProperty("stilldayVersionName").getOrElse("1.0.12")
+        versionCode = providers.gradleProperty("stilldayVersionCode").map(String::toInt).getOrElse(15)
+        versionName = providers.gradleProperty("stilldayVersionName").getOrElse("1.0.13")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -39,6 +39,9 @@ android {
 }
 ksp { arg("room.schemaLocation", "$projectDir/schemas") }
 dependencies {
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     implementation(project(":domain"))
     val composeBom = platform("androidx.compose:compose-bom:2025.05.01")
     implementation(composeBom)

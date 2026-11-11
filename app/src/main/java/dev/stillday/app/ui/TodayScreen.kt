@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter
         Text(dateLabel(date.toString()), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (plan.focus) "Room to focus." else "Today at a glance.", style = MaterialTheme.typography.headlineSmall)
         if (state.preferences.demoData) Text("Sample day", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        DriveBackupNotice(vm) { navigate("Settings") }
         TodayExamFocus(vm, state, open, navigate)
         DayTimeline(schedule, navigate, plan.items.firstOrNull()?.let { item -> { study(item) } })
         QuietCard {

@@ -2,7 +2,16 @@
 
 Latest test date: 11 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.12**, version code **14**, with weekday-specific meal skips and number-only exercise/example entry. Database schema remains 7. Earlier widget, exam, visual-system, day-planning, lab-type, navigation and updater results below are historical verification, not a claim that the full device suite was rerun for this build.
+Current development APK: version **1.0.13**, version code **15**, with Google Drive automatic backup. Database schema remains 7. Prior feature results below are retained as historical verification; see the current scope immediately below.
+
+## Google Drive automatic backup
+
+Current verification: **180 JVM tests passed (129 domain + 51 app)**; one optional live-GitHub check skipped. The 28 new sync/HTTP checks cover unchanged timestamps and Room ordering, metadata-only checks, offline retries, local-only and remote-only changes, simultaneous edits, both conflict choices, edits during upload/download, stale decisions, conditional If-Match updates, revision checks, private-folder pagination, expired authorization, missing files, malformed/oversized backups and newer-writer protection.
+
+Pixel 7/API 36 device verification: **21 passed, 0 failures, 1 optional visual fixture skipped** across 22 cases. Seven new persistence checks cover real repository compare-and-set, import-journal restart recovery, later edits after an interrupted import, invalid-backup rejection, device-local Drive links and importable safety copies, and completing the Drive link after onboarding is disposed during restore. Two UI checks cover restore/create setup, local continuation, backup settings and a cancelled Android account-picker result. The first external-account test was nondeterministic because Google launched its own add-account activities; it was replaced with an instrumented cancelled picker result. The combined corrected run passes. Existing six-schema migrations, manual semester creation, weekday meals, problem attempts/backups and nonblocking widget startup pass in the same run.
+
+Debug and locally signed release builds/lint pass. The local APK uses the existing laptop development signing key. Screenshots show synthetic records on the 1080 x 2400 / 420 dpi Pixel 7 emulator. Real Google account consent and a real Drive upload/download were **not exercised**; the HTTP tests use a fake server. The configured Cloud project's Android client must match the installed APK's package and SHA-1. See [Google Drive backup](GOOGLE_DRIVE.md) for setup, behavior, privacy and remaining live verification.
+
 
 ## Published GitHub update channel repair
 

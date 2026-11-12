@@ -29,3 +29,9 @@ Cards share leading category icons, subtle tinted surfaces, rounded corners and 
 Weekly meals: choose the weekday, then use each meal's Eat/Skip switch. Wednesday lunch can recur as skipped while other days keep their meals. Dated overrides, including Eat as usual, take priority. Skipped meals remain visibly marked in the menu and reserve no time in the day planner.
 
 Validation: core tests for meal precedence, persistence/migration tests, UI interaction tests, palette contrast checks and real 1080 × 2400 Pixel 7 screenshots in Paper and Charcoal, plus larger text.
+
+## Experiments and notification choices
+
+Experiment-based labs lead with Experiments. A detail page groups the scheduled date/time/room/attendance link separately from prework and report cards. Work lists both kinds independently, with deadlines and visible submitted states; completed submissions use sage or neutral styling. Previous chapter history remains reachable without competing with the main experiment list.
+
+Notification choices have their own page under Settings. Each category has one enable switch and one sound action, using the current theme's restrained surfaces. The sound dialog offers Silent, Default and the native ringtone picker. This keeps system-level audio controls in Android while making each app category easy to scan.

@@ -54,7 +54,7 @@ class WorkSlotMigrationTest {
             val event = ReviewEvent("e", "t", "2026-11-11", Rating.GOOD, 20, StudyKind.NEW)
             insert("review_events", JSONObject(plannerJson.encodeToString(event)).apply { remove("workSlotId") })
             helper.close()
-            val database = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_7_8).build()
+            val database = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_7_8, PlannerDatabase.MIGRATION_8_9).build()
             try {
                 val original = database.planner().load()
                 assertEquals(event, original.reviews.single()); assertTrue(original.workSlots.isEmpty())

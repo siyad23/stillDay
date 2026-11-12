@@ -78,10 +78,18 @@ import dev.stillday.domain.*
             IconButton(onClick = { open(Forms.course(vm, course.semesterId, course)) }) { Icon(Icons.Outlined.Edit, "Edit course") }
         }
         ScrollableTabRow(tab, edgePadding = 0.dp, containerColor = MaterialTheme.colorScheme.background, divider = {}) {
-            listOf("Chapters", "Schedule", "Assessments", "Work").forEachIndexed { index, name -> Tab(tab == index, { tab = index }, text = { Text(name) }) }
+            listOf(if (course.isExperimentLab) "Experiments" else "Chapters", "Schedule", "Assessments", "Work").forEachIndexed { index, name -> Tab(tab == index, { tab = index }, text = { Text(name) }) }
         }
         when (tab) {
             0 -> {
+                if (course.isExperimentLab) {
+                    ExperimentList(vm, state, course, open, navigate)
+                    val legacy = s.chapters.filter { it.courseId == id }
+                    if (legacy.isNotEmpty()) {
+                        SectionTitle("Previous chapter records")
+                        legacy.forEach { chapter -> ItemRow(chapter.title, "Saved topics and study history", onClick = { navigate("chapter:${chapter.id}") }) }
+                    }
+                } else {
                 SectionTitle("Chapters", "Add chapter") { open(Forms.chapter(vm, course.id)) }
                 val chapters = s.chapters.filter { it.courseId == id }
                 chapters.forEach { chapter ->
@@ -92,6 +100,7 @@ import dev.stillday.domain.*
                         if (problems.isNotEmpty()) " · ${problems.count { it.practiceStatus == PracticeStatus.SOLVED }}/${problems.size} problems solved" else "", onClick = { navigate("chapter:${chapter.id}") }) }
                 }
                 if (chapters.isEmpty()) EmptyState("Map your course", "Add chapters, then topics, exercises and example problems. Each can be selected for a syllabus and included in your daily study plan.")
+                }
             }
             1 -> {
                 val attendance = Recurrence.attendance(id, s)
@@ -131,13 +140,12 @@ import dev.stillday.domain.*
                 s.assignments.filter { it.courseId == id }.sortedBy { it.dueAt }.forEach { a ->
                     ItemRow(a.title, "Due ${dateLabel(a.dueAt)} · ${timeLabel(a.dueAt)}", if (a.completed) "Submitted" else null, category = ActivityCategory.DEADLINE) { navigate("assignment:${a.id}") }
                 }
-                val occurrenceIds = s.occurrences.filter { it.courseId == id }.map { it.id }.toSet()
-                val experiments = s.experiments.filter { it.occurrenceId in occurrenceIds }
+                val experiments = s.experiments.filter { it.courseId(s) == course.id }
                 if (course.isExperimentLab || experiments.isNotEmpty()) {
-                    SectionTitle(if (course.isExperimentLab) "Experiments" else "Previous experiments")
-                    experiments.forEach { e -> ItemRow(e.title,
-                        e.workSummary(), onClick = { open(Forms.experiment(vm, e.occurrenceId, e)) }) }
-                    Text(if (course.isExperimentLab) "Open a lab occurrence under Schedule to add its experiments." else "Saved experiment records remain available after changing the lab type.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SectionTitle(if (course.isExperimentLab) "Prework & lab reports" else "Previous experiment submissions")
+                    val submissions = LabSubmissions.all(s).filter { it.experiment.courseId(s) == course.id }
+                    submissions.forEach { item -> SubmissionCard(item, vm.repository.now()) { navigate(item.route) } }
+                    if (experiments.isEmpty()) Text("Add experiments in the Experiments tab. Their prework and reports appear here, including submitted work.", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -254,7 +262,7 @@ import dev.stillday.domain.*
         if (course.isExperimentLab || s.experiments.any { it.occurrenceId == id }) {
             SectionTitle(if (course.isExperimentLab) "Experiments" else "Previous experiments", if (course.isExperimentLab) "Add" else null) { open(Forms.experiment(vm, id)) }
             s.experiments.filter { it.occurrenceId == id }.forEach { experiment ->
-                QuietCard { ItemRow(experiment.title, experiment.workSummary(), onClick = { open(Forms.experiment(vm, id, experiment)) }) }
+                QuietCard { ItemRow(experiment.title, experiment.workSummary(), onClick = { navigate("experiment:${experiment.id}") }) }
             }
         }
     }

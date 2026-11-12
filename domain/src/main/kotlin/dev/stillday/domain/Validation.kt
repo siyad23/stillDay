@@ -16,6 +16,10 @@ object Validation {
         require(p.eventLeadMinutes in 0..1440 && p.deadlineLeadHours in 0..168)
         ZoneId.of(p.timezone)
         LocalTime.parse(p.morningTime)
+        p.notificationRules.values.forEach { rule ->
+            require(rule.sound.length <= 2048 && (rule.sound in setOf("default", "silent") ||
+                rule.sound.startsWith("content://"))) { "Choose a notification sound from the phone's ringtone picker." }
+        }
         p.manualStudyDate?.date()
         require(p.manualStudyTopicIds.size <= 10000 && p.manualStudyTopicIds.all { it.isNotBlank() } && p.manualStudyTopicIds.distinct().size == p.manualStudyTopicIds.size)
         require(p.studyPercent in 0..100 && p.mealMinutes in 1..180 && p.prayerMinutes in 1..180)
@@ -62,7 +66,13 @@ object Validation {
         }
         s.milestones.forEach { m -> has(if (m.project) s.projects.any { it.id == m.ownerId } else s.assignments.any { it.id == m.ownerId }); m.dueDate.date() }
         s.todos.forEach { t -> has(s.milestones.any { it.id == t.milestoneId }); t.plannedDate?.date() }
-        s.experiments.forEach { e -> has(s.occurrences.any { it.id == e.occurrenceId }); e.preworkDueAt?.dateTime(); e.reportDueAt?.dateTime() }
+        s.experiments.forEach { e ->
+            val occurrence = s.occurrences.find { it.id == e.occurrenceId }
+            has(s.courses.any { it.id == e.courseId(s) })
+            has(if (e.occurrenceId.isBlank()) e.courseId != null else occurrence != null && (e.courseId == null || occurrence.courseId == e.courseId))
+            require(e.title.isNotBlank())
+            e.preworkDueAt?.dateTime(); e.reportDueAt?.dateTime()
+        }
         s.meals.forEach { require(it.weekday in 1..7); LocalTime.parse(it.time) }
         s.mealOverrides.forEach { it.date.date(); it.time?.let(LocalTime::parse) }
         LifeResolver.validateTravel(s.travel)

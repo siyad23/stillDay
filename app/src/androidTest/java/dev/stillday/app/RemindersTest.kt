@@ -28,8 +28,8 @@ class RemindersTest {
         val due = repository.now().plusDays(2).withSecond(0).withNano(0)
         val experiment = Experiment("reminder-lab", occurrence.id, "Reminder experiment", WorkStatus.NOT_DONE, WorkStatus.WRITTEN,
             due.toString(), due.plusDays(2).toString())
-        repository.change { demo.copy(experiments = listOf(experiment)) }
-        repository.preferences { it.copy(notifications = true, deadlineLeadHours = 24, onboardingComplete = true, demoData = true) }
+        repository.change { demo.copy(experiments = listOf(experiment), occurrences = demo.occurrences.map { if (it.id == occurrence.id) it.copy(start = due.plusDays(1).toString(), end = due.plusDays(1).plusHours(2).toString(), overridden = true) else it }) }
+        repository.preferences { it.copy(notifications = true, notificationRules = emptyMap(), deadlineLeadHours = 24, onboardingComplete = true, demoData = true) }
         val manager = app.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
@@ -69,7 +69,7 @@ class RemindersTest {
         val repository = application.repository
         repository.initialize()
         repository.change { DemoData.create(repository.today()) }
-        repository.preferences { it.copy(notifications = true, onboardingComplete = true, demoData = true) }
+        repository.preferences { it.copy(notifications = true, notificationRules = emptyMap(), onboardingComplete = true, demoData = true) }
         val manager = application.getSystemService(NotificationManager::class.java)
         val intent = Intent().putExtra("id", 9001).putExtra("title", "Test daily brief").putExtra("briefing", true)
         try {

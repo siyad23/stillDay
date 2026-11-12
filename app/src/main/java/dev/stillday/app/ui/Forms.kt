@@ -174,27 +174,34 @@ object Forms {
         vm.edit { it.copy(todos = it.todos.filterNot { row -> row.id == t.id } + t) }
     }
 
-    fun experiment(vm: PlannerViewModel, occurrenceId: String, old: Experiment? = null) = FormSpec("Lab experiment", listOf(
-        FormField("title", "Experiment name", old?.title.orEmpty()),
-        FormField("prework", "Prework", (old?.prework ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
-        FormField("preworkDate", "Prework submission date · optional", old?.preworkDueAt?.take(10).orEmpty(), optional = true),
-        FormField("preworkTime", "Prework submission time", old?.preworkDueAt?.let(::timeLabel) ?: "23:59", optional = true),
-        FormField("report", "Lab report", (old?.report ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
-        FormField("reportDate", "Report submission date · optional", old?.reportDueAt?.take(10).orEmpty(), optional = true),
-        FormField("reportTime", "Report submission time", old?.reportDueAt?.let(::timeLabel) ?: "23:59", optional = true)),
-        "Set each submission deadline independently. Leave a date blank to remove its deadline. Times use your university timezone and default to 23:59.") { v ->
+    fun experiment(vm: PlannerViewModel, occurrenceId: String = "", old: Experiment? = null, courseId: String? = null): FormSpec {
         val data = vm.state.value.data
-        val course = data.occurrences.find { it.id == occurrenceId }?.let { o -> data.courses.find { it.id == o.courseId } }
-        require(old != null || course?.isExperimentLab == true) { "Add experiments to an experiment-based lab. Project-based labs use projects, milestones and TODOs." }
-        fun deadline(prefix: String): String? {
-            if (v["${prefix}Date"].isNullOrBlank()) return null
-            val date = v.dateValue("${prefix}Date")
-            val time = v["${prefix}Time"]?.trim()?.takeIf { it.isNotEmpty() } ?: "23:59"
-            return "${date}T$time".dateTime().toString()
+        val ownerId = courseId ?: old?.courseId(data) ?: data.occurrences.find { it.id == occurrenceId }?.courseId
+        val slots = data.occurrences.filter { it.courseId == ownerId }.sortedBy { it.start }
+        return FormSpec("Lab experiment", listOf(
+            FormField("title", "Experiment name", old?.title.orEmpty()),
+            FormField("occurrence", "Experiment schedule", old?.occurrenceId ?: occurrenceId,
+                listOf(Choice("", "Not scheduled yet")) + slots.map { Choice(it.id, "${dateLabel(it.start)} \u00b7 ${timeLabel(it.start)}\u2013${timeLabel(it.end)} \u00b7 ${it.location.ifBlank { "Room not set" }}${if (it.cancelled) " \u00b7 cancelled" else ""}") }, optional = true),
+            FormField("prework", "Prework", (old?.prework ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
+            FormField("preworkDate", "Prework submission date \u00b7 optional", old?.preworkDueAt?.take(10).orEmpty(), optional = true),
+            FormField("preworkTime", "Prework submission time", old?.preworkDueAt?.let(::timeLabel) ?: "23:59", optional = true),
+            FormField("report", "Lab report", (old?.report ?: WorkStatus.NOT_DONE).name, WorkStatus.entries.toTypedArray().choices()),
+            FormField("reportDate", "Report submission date \u00b7 optional", old?.reportDueAt?.take(10).orEmpty(), optional = true),
+            FormField("reportTime", "Report submission time", old?.reportDueAt?.let(::timeLabel) ?: "23:59", optional = true)),
+            "Schedule now or later. Prework is due before the experiment starts; an earlier submission date is optional. Lab reports follow the experiment. Leave the report date blank if it is not announced.") { v ->
+            val current = vm.state.value.data
+            val course = current.courses.find { it.id == ownerId }
+            require(old != null || course?.isExperimentLab == true) { "Add experiments to an experiment-based lab." }
+            fun deadline(prefix: String): String? {
+                if (v["${prefix}Date"].isNullOrBlank()) return null
+                return "${v.dateValue("${prefix}Date")}T${if (v["${prefix}Time"].isNullOrBlank()) "23:59" else v.timeValue("${prefix}Time")}"
+            }
+            val e = Experiment(old?.id ?: newId(), v["occurrence"].orEmpty(), v.required("title"),
+                WorkStatus.valueOf(v.getValue("prework")), WorkStatus.valueOf(v.getValue("report")), deadline("prework"), deadline("report"), ownerId)
+            if (old == null || old.occurrenceId != e.occurrenceId || old.preworkDueAt != e.preworkDueAt || old.reportDueAt != e.reportDueAt)
+                LabSubmissions.validateTiming(e, current)
+            vm.edit { it.copy(experiments = it.experiments.filterNot { row -> row.id == e.id } + e) }
         }
-        val e = Experiment(old?.id ?: newId(), occurrenceId, v.required("title"), WorkStatus.valueOf(v.getValue("prework")), WorkStatus.valueOf(v.getValue("report")),
-            deadline("prework"), deadline("report"))
-        vm.edit { it.copy(experiments = it.experiments.filterNot { row -> row.id == e.id } + e) }
     }
 
     fun meal(vm: PlannerViewModel, weekday: Int = 1, slot: String = "Breakfast", old: MealTemplate? = null) = FormSpec("Weekly hall meal", listOf(

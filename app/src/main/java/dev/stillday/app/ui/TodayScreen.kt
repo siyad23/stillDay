@@ -24,7 +24,7 @@ import java.time.format.DateTimeFormatter
     LaunchedEffect(plan) { vm.action { vm.repository.rememberPlan(plan) } }
     val todos = LifeResolver.dailyTodos(date, s, plan.focus)
     val routines = s.routineOccurrences.filter { it.date <= date.toString() && !it.completed && !it.skipped }
-    val labTasks = if (plan.focus) emptyList() else LabSubmissions.daily(date, s)
+    val labTasks = if (plan.focus) emptyList() else LabSubmissions.daily(date, s, now)
     var chooseTopics by remember { mutableStateOf(false) }
     val manual = state.preferences.manualStudyDate == date.toString()
     Page {
@@ -74,7 +74,7 @@ import java.time.format.DateTimeFormatter
         if (todos.isEmpty() && routines.isEmpty() && labTasks.isEmpty()) Text("Nothing needs your attention here.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         labTasks.forEach { item ->
             val due = item.dueAt?.let { "Due ${dateLabel(it.toString())} · ${timeLabel(it.toString())}${if (item.overdue(now)) " · overdue" else ""}" }
-            ActivityCard(item.title, due ?: "Lab ${dateLabel(item.occurrence.start)}", ActivityCategory.DEADLINE, status = item.status.name.pretty(), onClick = { navigate(item.route) })
+            ActivityCard(item.title, due ?: item.occurrence?.let { "Lab ${dateLabel(it.start)}" } ?: "Schedule not set", ActivityCategory.DEADLINE, status = item.status.name.pretty(), onClick = { navigate(item.route) })
         }
         todos.forEach { todo -> Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(todo.completed, { checked -> vm.edit("Task updated") { it.copy(todos = it.todos.map { row -> if (row.id == todo.id) row.copy(completed = checked) else row }) } },

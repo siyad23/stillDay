@@ -86,9 +86,9 @@ class LabTypesUiTest {
         rule.onNodeWithText("Add").performScrollTo().performClick()
         rule.onNodeWithText("Experiment name").performTextInput("Ohm's law")
         Espresso.closeSoftKeyboard()
-        rule.onNodeWithText("Prework").performScrollTo().performClick()
+        rule.onNode(hasText("Prework", substring = false) and SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.DropdownList)).performScrollTo().performClick()
         rule.onNodeWithText("Written").performClick()
-        rule.onNodeWithText("Lab report").performScrollTo().performClick()
+        rule.onNode(hasText("Lab report", substring = false) and SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.DropdownList)).performScrollTo().performClick()
         rule.onNodeWithText("Submitted").performClick()
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.experiments.any { it.title == "Ohm's law" } }

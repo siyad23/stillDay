@@ -2,9 +2,21 @@
 
 Latest test date: 12 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.15**, version code **17**, with prayer travel windows, Friday Jummah and manual study/project choices in generated Today and Calendar slots. Database schema is 8. Earlier widget, Drive and planner checks below are historical verification.
+Current development APK: version **1.0.16**, version code **18**, with an Experiments-first lab workflow and individually controlled notification categories and sounds. Database schema is 9. Earlier feature checks below are historical verification.
 
-## Prayer windows and manual work slots
+## Experiments and notification controls
+
+All **212 JVM tests pass (161 domain + 51 app)**; one optional live-GitHub check is skipped. Debug and locally signed release builds and lint pass. Each lint variant reports zero errors, 23 warnings and three hints.
+
+Thirteen new domain tests cover unscheduled course-owned experiments, legacy course lookup, both submitted/not-required work rows, prework cutoff at the scheduled start, earlier deadlines and reschedules, report suggestions only after the end, new deadline constraints with importable historical records, invalid ownership, independent category switches, weekly meal skips, Friday Jummah preparation time, unique reminder keys, report lead clamping, cancellation/rescheduling, exam focus, silent/custom settings round trips and legacy defaults.
+
+The corrected Pixel 7/API 36 suite contains 29 cases: **28 passed, zero failures, one opt-in planning screenshot fixture skipped**. Nine new cases exercise adding an unscheduled experiment and linking it later, retained chapter history, schema-8 to schema-9 ownership migration, real Android silent/default channels, category-specific alarm/display cancellation, stale reschedule rejection, Room/backup retention, notification settings and Back/recreation, and successful/cancelled ringtone-picker results. Existing project/experiment lab flows, editable independent deadlines, reminders, all six older migration paths, schema-7 work history, manual session persistence and prayer/meal planning pass in the same run. The six notification UI/delivery checks also pass separately on the final APK after adding persistent ringtone URI access where Android grants it.
+
+Initial device attempts exposed a test-cleanup return type rejected by JUnit and ambiguous form selectors after submission badges were added. Those test issues were corrected; the final combined run passes. Three synthetic-data screenshots were captured and visually inspected on the 1080 x 2400 / 420 dpi Pixel 7 emulator. See [lab workflow](LABS.md) and [notification controls](NOTIFICATIONS.md).
+
+Ringtone picker responses are intercepted in instrumentation to test selected/cancelled results without depending on installed tone names. Channel sound/importance and delivered notifications are inspected through the real Android NotificationManager. Physical-phone audibility, a real Google account backup round trip and hosted GitHub publication were not exercised. Sound choices respect Android permissions, volume, channel overrides and Do Not Disturb. The separate Fajr wake alarm retains its existing controls.
+
+## Historical prayer windows and manual work slots
 
 All **199 JVM tests pass (148 domain + 51 app)**; one optional live-GitHub check is skipped. Debug and locally signed release builds and lint pass. Each lint variant reports zero errors, 21 warnings and three hints.
 

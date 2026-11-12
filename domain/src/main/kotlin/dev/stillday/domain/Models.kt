@@ -61,7 +61,8 @@ data class Preferences(
     val highAlarmVolume: Boolean = true,
     val manualStudyDate: String? = null,
     val manualStudyTopicIds: List<String> = emptyList(),
-    val manualStudyHardCap: Boolean = true
+    val manualStudyHardCap: Boolean = true,
+    val notificationRules: Map<ReminderCategory, NotificationRule> = emptyMap()
 )
 
 @Entity(tableName = "semesters") @Serializable
@@ -129,11 +130,14 @@ data class Milestone(@PrimaryKey val id: String = newId(), val ownerId: String, 
 data class Todo(@PrimaryKey val id: String = newId(), val milestoneId: String, val title: String,
     val plannedDate: String? = null, val completed: Boolean = false, val position: Int = 0)
 
-@Entity(tableName = "experiments", indices = [Index("occurrenceId")]) @Serializable
+@Entity(tableName = "experiments", indices = [Index("occurrenceId"), Index("courseId")]) @Serializable
 data class Experiment(@PrimaryKey val id: String = newId(), val occurrenceId: String, val title: String,
     val prework: WorkStatus = WorkStatus.NOT_DONE, val report: WorkStatus = WorkStatus.NOT_DONE,
     @ColumnInfo(defaultValue = "NULL") val preworkDueAt: String? = null,
-    @ColumnInfo(defaultValue = "NULL") val reportDueAt: String? = null)
+    @ColumnInfo(defaultValue = "NULL") val reportDueAt: String? = null,
+    @ColumnInfo(defaultValue = "NULL") val courseId: String? = null)
+
+fun Experiment.courseId(data: Snapshot): String? = courseId ?: data.occurrences.find { it.id == occurrenceId }?.courseId
 
 @Entity(tableName = "meal_templates", indices = [Index(value = ["weekday", "slot"], unique = true)]) @Serializable
 data class MealTemplate(@PrimaryKey val id: String = newId(), val weekday: Int, val slot: String,

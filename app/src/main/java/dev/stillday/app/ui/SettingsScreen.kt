@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 
-@Composable fun SettingsScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, onEnableNotifications: () -> Unit) {
+@Composable fun SettingsScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, onEnableNotifications: () -> Unit, navigate: (String) -> Unit) {
     val context = LocalContext.current
     var importText by remember { mutableStateOf<String?>(null) }
     var importSummary by remember { mutableStateOf("") }
@@ -85,8 +85,9 @@ import java.time.ZoneId
         SectionTitle("Reminders")
         Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(p.notifications, { checked -> if (checked) onEnableNotifications() else vm.preferences { it.copy(notifications = false) } })
-            Text("  Daily brief & key events")
+            Text("  Enable reminders")
         }
+        ItemRow("Notification categories & sounds", "Classes, meals, prayers, study, projects and more", onClick = { navigate("Notifications") })
         ItemRow("Reminder timing", "Morning ${p.morningTime} · events ${p.eventLeadMinutes}m before\nDeadlines ${p.deadlineLeadHours}h before", onClick = {
             open(FormSpec("Reminder timing", listOf(FormField("morning", "Morning briefing time", p.morningTime),
                 FormField("events", "Minutes before classes / exams", p.eventLeadMinutes.toString()),

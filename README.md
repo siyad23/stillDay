@@ -55,7 +55,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Exam periods that suspend classes and automatically activate an editable focus window. Assignment/project suggestions pause while deadline warnings remain visible.
 - Assignments and active/paused personal projects, each with milestones and TODOs. Assignment submission can be marked complete.
 - A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today. Back restores the actual previous page, its selected section and scroll position.
-- Lab experiments with independent prework/report statuses and submission deadlines, including overdue tracking, Calendar/widget entries and reminders; pending lab work appears on Today.
+- An Experiments tab for experiment-based labs, with optional schedules, detailed session/status pages and a Work list of every prework/report. Prework is due by the experiment start; report suggestions and reminders follow its end.
 - [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
 - Weekly hall meals with Eat/Skip rules for each weekday and meal, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.
 - One-off and bounded recurring routines with start/end times or durations, completion, skipping, and individual rescheduling.
@@ -65,7 +65,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Fajr-based wake-up and bedtime, plus an optional automatic wake alarm with maximum alarm volume, snooze/dismiss controls and a separate Clock backup shortcut.
 - A shared, quiet [visual system](docs/UX_SYSTEM.md): violet prayers, sage study, blue classes and amber projects, with icons, time columns, status badges and accessible theme previews. Today previews upcoming activities directly and avoids duplicate event lists.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
-- Home-screen Add Quiz widget, daily briefings, event/deadline reminders, and validated JSON export/import.
+- Home-screen Add Quiz widget, daily briefings, and [individually controlled reminders](docs/NOTIFICATIONS.md) for classes, labs, meals, prayer, study, projects/capstone, assessments, assignments, lab submissions, routines and travel. Choose silent, default or a phone ringtone per category; validated JSON export/import retains these preferences.
 - A translucent, theme-matched [home-screen agenda widget](docs/WIDGETS.md), with grouped dates, scrolling/resizing, event links, and quick quiz capture.
 - GitHub in-app update checks, verified APK downloads, and Android's installation prompt; daily automatic checks can be disabled in Settings.
 
@@ -101,7 +101,7 @@ Ordinary reminders use Android inexact idle-aware alarms with periodic WorkManag
 
 - `domain`: serializable entities, recurrence, location/meal resolution, validation, focus calculation, and deterministic study planning. JVM tests include a 150-day, 180-topic simulation with mixed difficulty and missed weeks.
 - `app`: Compose screens, Room database, DataStore settings, repository/ViewModel state, native Android home-screen widgets, Android reminders, and instrumented UI/persistence tests.
-- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations; version 5 → 6 adds weekly meal plans; version 6 → 7 adds per-slot rooms and exam-focus overrides; version 7 → 8 adds dated work-slot choices and their study-history links. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
+- Exported Room schemas are under `app/schemas`. Version 1 → 2 adds item type and problem solve status; version 2 → 3 adds lab types and project-course links; version 3 → 4 adds independent experiment submission deadlines; version 4 → 5 adds routine durations/end times, dated meal times and assessment durations; version 5 → 6 adds weekly meal plans; version 6 → 7 adds per-slot rooms and exam-focus overrides; version 7 → 8 adds dated work-slot choices and their study-history links; version 8 → 9 adds experiment course ownership and retains occurrence links, supporting experiments without a schedule. These upgrades retain existing records. Old backups remain importable; retired semester-count/duration settings are ignored. Future schema changes require tested migrations; destructive migration is not enabled.
 
 ```powershell
 .\scripts\Build.ps1

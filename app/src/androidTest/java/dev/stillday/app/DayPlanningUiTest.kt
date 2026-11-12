@@ -99,7 +99,7 @@ class DayPlanningUiTest {
         rule.onNodeWithText("Plan settings").performScrollTo().performClick()
         rule.onNodeWithText("Set times").performScrollTo().performClick()
         listOf("Fajr (Fazar)" to "05:15", "Dhuhr" to "13:15", "Asr" to "16:15", "Maghrib" to "17:30", "Isha" to "19:30").forEach { (label, time) -> replace(label, time) }
-        replace("Minutes per prayer", "30")
+        replace("Jummah · Friday only · optional", "13:00")
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.preferences.prayerTimes.size == 5 }
         rule.onAllNodesWithText("Edit")[0].performScrollTo().performClick()

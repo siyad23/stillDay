@@ -30,7 +30,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
 @Composable fun PlannerApp(vm: PlannerViewModel, openUpdates: Boolean = false, initialRoute: String? = null) {
     val state by vm.state.collectAsStateWithLifecycle()
     val destination = initialRoute?.takeIf { it in listOf("Today", "Projects", "Calendar", "University", "Life", "Planning", "Settings") ||
-        it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") || it.startsWith("exam-period:") }
+        it.startsWith("class:") || it.startsWith("assessment:") || it.startsWith("assignment:") || it.startsWith("project:") || it.startsWith("exam-period:") || it.startsWith("work-slot:") }
     var navigation by rememberSaveable(stateSaver = Saver<PlannerNavigation, String>(
         save = { Json.encodeToString(it) }, restore = { runCatching { Json.decodeFromString<PlannerNavigation>(it) }.getOrNull() })) {
         mutableStateOf(PlannerNavigation.start(if (openUpdates) "Settings" else destination))
@@ -64,7 +64,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                     containerColor = MaterialTheme.colorScheme.background,
                     snackbarHost = { SnackbarHost(snack) },
                     topBar = {
-                        TopAppBar(title = { Text(if (route.startsWith("exam-period:")) "Exam routine" else if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
+                        TopAppBar(title = { Text(if (route.startsWith("work-slot:")) "Time slot" else if (route.startsWith("exam-period:")) "Exam routine" else if (route.contains(':')) route.substringBefore(':').pretty() else if (route == "Today") "stillday" else route,
                             style = MaterialTheme.typography.titleLarge) },
                             navigationIcon = { if (navigation.stack.size > 1) IconButton(onClick = { navigation = navigation.back() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back") } },
                             actions = {
@@ -97,6 +97,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                                 if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                                 else vm.preferences { it.copy(notifications = true) }
                             })
+                            route.startsWith("work-slot:") -> WorkSlotScreen(vm, state, route.substringAfter(':'), navigate)
                             route.startsWith("semester:") -> SemesterScreen(vm, state, route.substringAfter(':'), open, navigate)
                             route.startsWith("exam-period:") -> ExamRoutineScreen(vm, state, route.substringAfter(':'), open,
                                 onAssessment = { id, old -> assessment = AssessmentRequest(id, old, route.substringAfter(':')) })

@@ -23,6 +23,10 @@ Open **Life → Day plan**, or **Today → Plan settings**.
 - Your topic queue uses the available study allocation, retaining new/review balance, difficult-work limits and ratings. If automatic planning is switched off, your existing fixed daily study budgets apply.
 - Conflicting fixed activities are reported without moving them. Sleep remains protected from generated work; a late commitment produces a sleep-conflict warning.
 
+## Choose the work inside a generated slot
+
+Tap a study or project block in Today’s expanded day plan or the full Calendar, then choose **Choose study / project work**. Select individual topics, whole chapters or an active project’s TODO. The slot retains its existing date, start and end; meals, prayer, routines and class buffers remain protected. **Use automatic choice** removes the selection while retaining study history. Future dates can be planned from Calendar. See [manual study and project slots](MANUAL_WORK.md) for details.
+
 ## Meals
 
 Set default breakfast, lunch and dinner times and **minutes per meal** under Meal times. The default duration is twenty minutes.
@@ -35,7 +39,9 @@ Activity colors and icons are shared across Today, Calendar, University, Project
 
 ## Prayers and sleep
 
-Choose **Set times** and manually enter all five times in 24-hour format: Fajr (Fazar), Dhuhr, Asr, Maghrib and Isha. The default prayer duration is thirty minutes and can be changed.
+Choose **Set times** and manually enter all five times in 24-hour format: Fajr (Fazar), Dhuhr, Asr, Maghrib and Isha. Each prayer reserves five minutes before the entered time to reach the mosque and twenty minutes afterward. For example, a 13:15 prayer occupies 13:10–13:35. The former adjustable prayer duration no longer controls these windows.
+
+Set **Jummah · Friday only** for the Friday congregation. Jummah replaces Dhuhr only on Fridays and uses the same five-before/twenty-after window. If its separate time is blank, Friday Jummah uses your entered Dhuhr time.
 
 The entered times repeat daily until you edit them; this app does not calculate astronomical prayer times.
 

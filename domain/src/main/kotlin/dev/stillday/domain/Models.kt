@@ -28,6 +28,7 @@ fun String.dateTime(): LocalDateTime = LocalDateTime.parse(this)
 @Serializable enum class ThemeChoice { SYSTEM, PAPER, SAND, CHARCOAL, MIDNIGHT }
 @Serializable enum class ChapterItemKind { TOPIC, EXERCISE, EXAMPLE }
 @Serializable enum class PracticeStatus { NOT_STARTED, IN_PROGRESS, SOLVED }
+@Serializable enum class WorkMode { STUDY, PROJECT }
 
 @Serializable
 data class Preferences(
@@ -52,6 +53,7 @@ data class Preferences(
     val dinnerTime: String = "20:00",
     val prayerTimes: Map<String, String> = emptyMap(),
     val prayerMinutes: Int = 30,
+    val jummahTime: String? = null,
     val sleepMinutes: Int = 360,
     val wakeBeforeFajrMinutes: Int = 15,
     val fallbackWakeTime: String = "07:00",
@@ -162,7 +164,13 @@ data class RoutineOccurrence(@PrimaryKey val id: String, val routineId: String, 
 
 @Entity(tableName = "review_events", indices = [Index("topicId"), Index("date")]) @Serializable
 data class ReviewEvent(@PrimaryKey val id: String = newId(), val topicId: String, val date: String,
-    val rating: Rating, val minutes: Int, val kind: StudyKind, val finished: Boolean = true, val difficult: Boolean = false)
+    val rating: Rating, val minutes: Int, val kind: StudyKind, val finished: Boolean = true, val difficult: Boolean = false,
+    @ColumnInfo(defaultValue = "NULL") val workSlotId: String? = null)
+
+@Entity(tableName = "work_slot_assignments", indices = [Index("date")]) @Serializable
+data class WorkSlotAssignment(@PrimaryKey val id: String, val date: String, val start: String, val end: String,
+    val mode: WorkMode, @ColumnInfo(defaultValue = "'[]'") val topicIds: List<String> = emptyList(),
+    @ColumnInfo(defaultValue = "NULL") val todoId: String? = null)
 
 @Entity(tableName = "study_plans", indices = [Index("date"), Index("topicId")]) @Serializable
 data class StudyPlanEntry(@PrimaryKey val id: String, val topicId: String, val date: String, val kind: StudyKind,
@@ -180,7 +188,7 @@ data class Snapshot(
     val meals: List<MealTemplate> = emptyList(), val mealOverrides: List<MealOverride> = emptyList(),
     val travel: List<TravelLeg> = emptyList(), val routines: List<Routine> = emptyList(),
     val routineOccurrences: List<RoutineOccurrence> = emptyList(), val reviews: List<ReviewEvent> = emptyList(),
-    val plans: List<StudyPlanEntry> = emptyList()
+    val plans: List<StudyPlanEntry> = emptyList(), val workSlots: List<WorkSlotAssignment> = emptyList()
 )
 
 @Serializable data class Backup(val version: Int = 1, val exportedAt: String, val preferences: Preferences, val data: Snapshot)
@@ -189,6 +197,7 @@ data class FocusState(val active: Boolean, val periods: List<ExamPeriod>)
 data class LocationState(val place: Place?, val name: String, val inferred: Boolean = false, val inferredArrival: String? = null)
 data class ResolvedMeal(val slot: String, val time: String, val description: String, val inferred: Boolean,
     val durationMinutes: Int = 20, val skipped: Boolean = false)
-data class StudyItem(val topic: Topic, val course: Course, val kind: StudyKind, val minutes: Int, val reason: String)
+data class StudyItem(val topic: Topic, val course: Course, val kind: StudyKind, val minutes: Int, val reason: String,
+    val workSlotId: String? = null)
 data class DailyPlan(val date: LocalDate, val budget: Int, val completedMinutes: Int, val items: List<StudyItem>,
     val deferredMinutes: Int, val warnings: List<String>, val focus: Boolean, val deferredTopicIds: List<String> = emptyList())

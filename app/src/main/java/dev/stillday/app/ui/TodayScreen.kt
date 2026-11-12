@@ -122,7 +122,8 @@ import java.time.format.DateTimeFormatter
     var error by remember { mutableStateOf<String?>(null) }
     EditorDialog(if (item.topic.isProblem) "How did solving go?" else "How did studying go?", onClose, onSave = {
         val amount = minutes.toIntOrNull()
-        if (amount == null || amount !in 1..item.minutes) error = "Enter 1–${item.minutes} minutes for this planned session."
+        val maximum = if (item.workSlotId != null) 960 else item.minutes
+        if (amount == null || amount !in 1..maximum) error = "Enter 1–$maximum minutes for this session."
         else { vm.action("Study recorded") { vm.repository.review(item, selected, amount) }; onClose() }
     }, saveLabel = if (item.topic.isProblem) "Record solve attempt" else "Record study") {
         Text(item.topic.title, style = MaterialTheme.typography.titleLarge)

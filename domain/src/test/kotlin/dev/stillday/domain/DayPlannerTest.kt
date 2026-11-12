@@ -116,7 +116,7 @@ class DayPlannerTest {
     @Test fun activeProjectsAndTheirNextTodosAreUsed() {
         val s = data().copy(milestones = listOf(Milestone("m", "p", true, "Prototype", "2027-01-01")), todos = listOf(Todo("t", "m", "Build prototype")))
         val blocks = DayPlanner.build(date, s, p).blocks.filter { it.kind == DayBlockKind.PROJECT }
-        assertTrue(blocks.isNotEmpty()); assertTrue(blocks.all { it.route == "project:p" && it.detail == "Build prototype" })
+        assertTrue(blocks.isNotEmpty()); assertTrue(blocks.all { it.route?.startsWith("work-slot:") == true && it.detail == "Build prototype" })
     }
     @Test fun overnightRoutinesAndTravelStayBlockedAndSkippingReleasesTime() {
         val r = Routine("r", "Night work", date.minusDays(1).toString(), date.toString(), "23:00", durationMinutes = 600)
@@ -202,7 +202,7 @@ class DayPlannerTest {
         val prefs = p.copy(prayerTimes = prayers)
         val entries = Agenda.build(at("04:00"), s, prefs).first().entries
         assertTrue(entries.any { it.kind == AgendaKind.STUDY })
-        assertTrue(entries.any { it.kind == AgendaKind.PROJECT && it.route == "project:p" })
+        assertTrue(entries.any { it.kind == AgendaKind.PROJECT && it.route.startsWith("work-slot:") })
         assertEquals(5, entries.count { it.kind == AgendaKind.PRAYER })
         assertEquals(3, entries.count { it.kind == AgendaKind.MEAL })
         assertTrue(entries.any { it.kind == AgendaKind.SLEEP })

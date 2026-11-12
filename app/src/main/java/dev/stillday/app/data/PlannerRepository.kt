@@ -96,7 +96,7 @@ class PlannerRepository(private val context: Context, private val database: Plan
     suspend fun rememberPlan(plan: DailyPlan) = change { s ->
         val old = s.plans.associateBy { it.id }
         val currentIds = s.topics.map { it.id }.toSet()
-        val selected = plan.items.filter { it.topic.id in currentIds }.map { item ->
+        val selected = plan.items.filter { it.topic.id in currentIds && it.workSlotId == null }.map { item ->
             val id = "${plan.date}:${item.topic.id}"
             old[id]?.copy(kind = item.kind, minutes = item.minutes) ?: StudyPlanEntry(id, item.topic.id, plan.date.toString(), item.kind, item.minutes)
         }
@@ -108,11 +108,14 @@ class PlannerRepository(private val context: Context, private val database: Plan
     }
 
     suspend fun review(item: StudyItem, rating: Rating, minutes: Int = item.minutes) = change { s ->
-        val date = today()
-        require(s.reviews.none { it.topicId == item.topic.id && it.date == date.toString() }) { "This topic is already recorded today. Use extra practice for another session." }
+        val date = item.workSlotId?.let { manualStudyDate(it, item.topic.id, s) } ?: today()
+        require(s.reviews.none { it.topicId == item.topic.id && if (item.workSlotId != null) it.workSlotId == item.workSlotId else it.date == date.toString() }) {
+            "This topic is already recorded for this session. Use its chapter for extra practice."
+        }
         val topic = s.topics.first { it.id == item.topic.id }
-        val (updated, event) = StudyPlanner.recordReview(topic, date, rating, minutes, item.kind)
-        s.copy(topics = s.topics.map { if (it.id == updated.id) updated else it }, reviews = s.reviews + event,
+        val (updated, event) = StudyPlanner.recordReview(topic, date, rating, minutes,
+            if (item.workSlotId != null) { if (topic.learned) StudyKind.REVIEW else StudyKind.NEW } else item.kind)
+        s.copy(topics = s.topics.map { if (it.id == updated.id) updated else it }, reviews = s.reviews + event.copy(workSlotId = item.workSlotId),
             plans = s.plans.map { if (it.topicId == topic.id && it.date == date.toString()) it.copy(completed = true) else it })
     }
 
@@ -124,20 +127,40 @@ class PlannerRepository(private val context: Context, private val database: Plan
 
     suspend fun skip(item: StudyItem) = change { s ->
         val id = "${today()}:${item.topic.id}"
-        s.copy(plans = s.plans.filterNot { it.id == id } + StudyPlanEntry(id, item.topic.id, today().toString(), item.kind, item.minutes, skipped = true))
+        s.copy(plans = s.plans.filterNot { it.id == id } + StudyPlanEntry(id, item.topic.id, today().toString(), item.kind, item.minutes, skipped = true),
+            workSlots = s.workSlots.map { if (it.id == item.workSlotId) it.copy(topicIds = it.topicIds - item.topic.id) else it }
+                .filterNot { it.mode == WorkMode.STUDY && it.topicIds.isEmpty() })
     }
 
     suspend fun solveProblem(topicId: String, rating: Rating, minutes: Int, difficulty: Int, nextMinutes: Int,
         solved: Boolean, planned: StudyItem? = null) = change { s ->
-        val date = today()
-        if (planned != null) require(s.reviews.none { it.topicId == topicId && it.date == date.toString() }) {
-            "This problem is already recorded today. Use its chapter for another attempt."
+        val date = planned?.workSlotId?.let { manualStudyDate(it, topicId, s) } ?: today()
+        if (planned != null) require(s.reviews.none { it.topicId == topicId &&
+            if (planned.workSlotId != null) it.workSlotId == planned.workSlotId else it.date == date.toString() }) {
+            "This problem is already recorded for this session. Use its chapter for another attempt."
         }
         val topic = s.topics.first { it.id == topicId }
         val (updated, event) = ProblemPractice.record(topic, date, rating, minutes, difficulty, nextMinutes, solved,
             planned?.kind ?: if (topic.learned) StudyKind.REVIEW else StudyKind.NEW)
-        s.copy(topics = s.topics.map { if (it.id == topicId) updated else it }, reviews = s.reviews + event,
+        s.copy(topics = s.topics.map { if (it.id == topicId) updated else it }, reviews = s.reviews + event.copy(workSlotId = planned?.workSlotId),
             plans = s.plans.map { if (it.topicId == topicId && it.date == date.toString()) it.copy(completed = true, skipped = false) else it })
+    }
+
+    suspend fun saveWorkSlot(selection: WorkSlotAssignment) = change { data ->
+        WorkSlots.validate(selection, data, state.value.preferences)
+        data.copy(workSlots = data.workSlots.filterNot { it.id == selection.id } + selection,
+            plans = data.plans.map { if (it.date == selection.date && it.topicId in selection.topicIds) it.copy(skipped = false) else it })
+    }
+
+    suspend fun clearWorkSlot(id: String) = change { it.copy(workSlots = it.workSlots.filterNot { row -> row.id == id }) }
+
+    private fun manualStudyDate(id: String, topicId: String, data: Snapshot): LocalDate {
+        val selection = data.workSlots.firstOrNull { it.id == id && it.mode == WorkMode.STUDY && topicId in it.topicIds }
+            ?: error("This study selection has changed. Open its time slot again.")
+        WorkSlots.validate(selection, data, state.value.preferences)
+        val date = selection.start.dateTime().toLocalDate()
+        require(date <= today()) { "Future sessions can be planned now and recorded on their study date." }
+        return date
     }
 
     suspend fun chooseStudyTopics(topicIds: List<String>, keepDifficultCap: Boolean) {

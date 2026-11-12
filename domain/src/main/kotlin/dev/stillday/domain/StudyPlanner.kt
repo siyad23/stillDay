@@ -13,7 +13,8 @@ object StudyPlanner {
 
     fun difficult(topic: Topic): Boolean = topic.difficulty >= 4 || topic.lastRating in listOf(Rating.AGAIN, Rating.HARD)
 
-    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences, budgetOverride: Int? = null, now: LocalDateTime? = null): DailyPlan {
+    fun buildDailyPlan(date: LocalDate, data: Snapshot, preferences: Preferences, budgetOverride: Int? = null, now: LocalDateTime? = null,
+        excludedTopicIds: Set<String> = emptySet()): DailyPlan {
         val focus = Recurrence.focus(date, data.periods, preferences).active
         val manual = preferences.manualStudyDate == date.toString()
         val manualIds = preferences.manualStudyTopicIds.toSet()
@@ -33,7 +34,7 @@ object StudyPlanner {
         val plansByTopic = data.plans.groupBy { it.topicId }
         val completedIds = completedToday.map { it.topicId }.toSet()
         val skippedIds = data.plans.filter { it.date == date.toString() && it.skipped }.map { it.topicId }.toSet()
-        val candidates = data.topics.filter { !it.archived && it.id !in completedIds && it.id !in skippedIds }.mapNotNull { topic ->
+        val candidates = data.topics.filter { !it.archived && it.id !in completedIds && it.id !in skippedIds && it.id !in excludedTopicIds }.mapNotNull { topic ->
             val chapter = chapterMap[topic.chapterId] ?: return@mapNotNull null
             val course = courses[chapter.courseId] ?: return@mapNotNull null
             if (focus && course.type != CourseType.THEORY) return@mapNotNull null

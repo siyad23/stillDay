@@ -17,6 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import dev.stillday.app.PlannerViewModel
@@ -36,13 +38,16 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
         SummaryMetric("Project time", minutesLabel(schedule.projectMinutes), ActivityCategory.PROJECT, Modifier.weight(1f))
     }
     Text("Wake ${timeLabel(schedule.wake.toString())} 路 sleep ${timeLabel(schedule.bedtime.toString())}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("Tap a study or project slot to choose its work.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     val visible = schedule.blocks.filterNot { it.kind == DayBlockKind.PREPARATION }
     (if (expanded) visible else visible.take(4)).forEachIndexed { index, block ->
         val status = if (schedule.remainingFrom != null && block.start <= schedule.remainingFrom && block.end > schedule.remainingFrom) "Now" else if (index == 0) "Next" else null
         ActivityCard(block.title, if (block.kind == DayBlockKind.SLEEP) "${minutesLabel(block.minutes)} sleep target" else block.detail,
             block.kind.category(), timeLabel(block.start.toString()),
             timeLabel(block.end.toString()), badge = when (block.kind) { DayBlockKind.LAB -> "Lab"; DayBlockKind.CLASS -> "Class"; DayBlockKind.SLEEP -> "Rest"; else -> block.kind.category().label },
-            status = status, onClick = if (block.kind == DayBlockKind.STUDY) onStudy else block.route?.let { route -> { navigate(route) } })
+            status = if (block.manual) "Your choice" else status,
+            modifier = if (block.flexible) Modifier.semantics { contentDescription = "Choose work for ${blockTime(block)}" } else Modifier,
+            onClick = block.route?.let { route -> { navigate(route) } })
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide day plan" else "Show day plan") }
@@ -67,7 +72,7 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
         Text("${p.studyPercent}% study 路 ${100 - p.studyPercent}% active projects", style = MaterialTheme.typography.titleMedium)
         Text("Gaps under 30 minutes stay vacant for relaxation. Class and lab preparation keeps 10 minutes free on each side. Exam focus uses all available work time for study.", style = MaterialTheme.typography.bodyMedium)
         Text("Sleep target ${minutesLabel(p.sleepMinutes)} 路 wake ${p.wakeBeforeFajrMinutes}m before Fajr", style = MaterialTheme.typography.bodyMedium)
-        if (!p.autoFillDay) Text("Study uses your fixed daily budget while automatic planning is off.", style = MaterialTheme.typography.bodySmall)
+        if (!p.autoFillDay) Text("Study uses your fixed daily budget while automatic planning is off. Turn on Fill available time to choose work for generated slots.", style = MaterialTheme.typography.bodySmall)
     }
     SectionTitle("Meal times", "Edit") { open(Forms.mealTiming(vm)) }
     QuietCard {
@@ -82,7 +87,8 @@ fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}鈥
         CategoryHeading(ActivityCategory.PRAYER, "Five daily prayers")
         if (p.prayerTimes.isEmpty()) Text("Set your five local prayer times. They repeat daily until you change them.", style = MaterialTheme.typography.bodyMedium)
         else Prayer.entries.forEach { prayer -> Text("${prayer.label} 路 ${p.prayerTimes.getValue(prayer.name)}", style = MaterialTheme.typography.bodyMedium) }
-        Text("${p.prayerMinutes} minutes per prayer", style = MaterialTheme.typography.bodySmall)
+        (p.jummahTime ?: p.prayerTimes[Prayer.DHUHR.name])?.let { Text("Jummah 路 $it 路 Friday only; replaces Dhuhr", style = MaterialTheme.typography.bodyMedium) }
+        Text("5 minutes before prayer to reach the mosque 路 ends 20 minutes after", style = MaterialTheme.typography.bodySmall)
         val schedule = DayPlanner.build(vm.repository.today(), state.data, p)
         Text("Wake ${timeLabel(schedule.wake.toString())} 路 bedtime ${timeLabel(schedule.bedtime.toString())}", style = MaterialTheme.typography.titleMedium)
         Text("Times are manual; update them as your local prayer timetable changes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

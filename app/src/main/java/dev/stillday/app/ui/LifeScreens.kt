@@ -71,7 +71,10 @@ import java.time.DayOfWeek
             if (Recurrence.focus(day, s.periods, state.preferences).active) Text("Exam focus · assignment and project suggestions paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             if (events.isEmpty()) Text("No scheduled activities", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             events.sortedBy { it.time }.forEach { event ->
-                ActivityCard(event.title, event.subtitle, event.category, time = event.time, endTime = event.endTime, onClick = event.route?.let { { navigate(it) } })
+                ActivityCard(event.title, event.subtitle, event.category, time = event.time, endTime = event.endTime,
+                    modifier = if (event.route?.startsWith("work-slot:") == true) Modifier.semantics {
+                        contentDescription = "Choose work for ${dateLabel(day.toString())} ${event.time}–${event.endTime}"
+                    } else Modifier, onClick = event.route?.let { { navigate(it) } })
             }
             if (!week) {
                 SectionTitle("Meals", "Override") { open(Forms.mealOverride(vm, day.toString())) }

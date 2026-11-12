@@ -1,10 +1,20 @@
 # Stillday verification
 
-Latest test date: 11 November 2026 (Asia/Dhaka).
+Latest test date: 12 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.14**, version code **16**, with corrected dark themes and actual transparency in both home-screen widgets. Database schema remains 7. Earlier Drive and planner checks below are historical verification.
+Current development APK: version **1.0.15**, version code **17**, with prayer travel windows, Friday Jummah and manual study/project choices in generated Today and Calendar slots. Database schema is 8. Earlier widget, Drive and planner checks below are historical verification.
 
-## Widget dark themes and real transparency
+## Prayer windows and manual work slots
+
+All **199 JVM tests pass (148 domain + 51 app)**; one optional live-GitHub check is skipped. Debug and locally signed release builds and lint pass. Each lint variant reports zero errors, 21 warnings and three hints.
+
+Nineteen new domain tests cover five-minute pre-prayer and twenty-minute post-prayer windows, Friday-only Jummah with separate or Dhuhr fallback time, midnight/Fajr edges, old-duration compatibility, valid prayer settings, exact dated work-slot overlay, study/project switching, original TODO selection, completed-task timing stability, old backup defaults, changed-routine rejection, forty difficult topics sharing one bounded slot, repeated topics in separate sessions, consumed minutes, archived/paused work, exam-focus restrictions, invalid parents and widget agenda routes.
+
+The final Pixel 7/API 36 instrumented run contains 28 cases: **25 passed, zero failures, three opt-in screenshot fixtures skipped**. New checks exercise Today slot selection and a twelve-minute partial study rating, future Calendar whole-chapter selection and Back navigation, project TODO completion/open/clear, Friday Jummah, two independent sessions for one topic, duplicate session-save rejection, exercise actual minutes, future-recording rejection, retained history after clearing, and JSON/Room persistence. A schema-7 fixture verifies the new table and nullable review link while retaining old records; all six earlier migration paths now reach schema 8. Existing exam controls/rooms, weekday meal overrides and exercise-entry regressions pass in the same run.
+
+Three screenshots with synthetic demo data were captured during the new UI checks and visually inspected at 1080 x 2400 pixels / 420 dpi. See [manual study and project slots](MANUAL_WORK.md). The APK uses the existing laptop development signing key. No GitHub release was published; physical-phone behavior and a real Google account backup round trip were not exercised in this change.
+
+## Historical widget dark themes and real transparency
 
 All **180 JVM tests pass (129 domain + 51 app)**; one optional live-GitHub check is skipped. Debug/release builds and lint pass.
 

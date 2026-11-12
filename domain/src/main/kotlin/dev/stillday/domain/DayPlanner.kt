@@ -4,6 +4,7 @@ import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.DayOfWeek
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -27,7 +28,7 @@ object ActivityTiming {
 enum class DayBlockKind { CLASS, LAB, PREPARATION, ASSESSMENT, ROUTINE, TRAVEL, MEAL, PRAYER, SLEEP, STUDY, PROJECT, REST }
 
 data class DayBlock(val id: String, val title: String, val start: LocalDateTime, val end: LocalDateTime,
-    val kind: DayBlockKind, val detail: String = "", val route: String? = null) {
+    val kind: DayBlockKind, val detail: String = "", val route: String? = null, val manual: Boolean = false) {
     val minutes: Int get() = Duration.between(start, end).toMinutes().toInt()
     val flexible: Boolean get() = kind == DayBlockKind.STUDY || kind == DayBlockKind.PROJECT
 }
@@ -44,12 +45,14 @@ data class DaySchedule(val date: LocalDate, val wake: LocalDateTime, val bedtime
 object DayPlanner {
     const val CLASS_BUFFER_MINUTES = 10
     const val MIN_WORK_MINUTES = 30
+    const val PRAYER_BEFORE_MINUTES = 5
+    const val PRAYER_AFTER_MINUTES = 20
 
     fun wake(date: LocalDate, p: Preferences): LocalDateTime = p.prayerTimes[Prayer.FAJR.name]?.let {
         date.atTime(LocalTime.parse(it)).minusMinutes(p.wakeBeforeFajrMinutes.toLong())
     } ?: date.atTime(LocalTime.parse(p.fallbackWakeTime))
 
-    fun build(date: LocalDate, data: Snapshot, p: Preferences, notBefore: LocalDateTime? = null): DaySchedule {
+    fun build(date: LocalDate, data: Snapshot, p: Preferences, notBefore: LocalDateTime? = null, applyAssignments: Boolean = true): DaySchedule {
         val wake = wake(date, p)
         val nextWake = wake(date.plusDays(1), p)
         val bed = nextWake.minusMinutes(p.sleepMinutes.toLong())
@@ -88,9 +91,11 @@ object DayPlanner {
                     DayBlockKind.MEAL, meal.description, "Life"))
             }
             Prayer.entries.forEach { prayer -> p.prayerTimes[prayer.name]?.let { time ->
-                val at = day.atTime(LocalTime.parse(time))
-                add(DayBlock("prayer:$day:${prayer.name}", prayer.label, at, at.plusMinutes(p.prayerMinutes.toLong()),
-                    DayBlockKind.PRAYER, "Prayer", "Planning"))
+                val jummah = prayer == Prayer.DHUHR && day.dayOfWeek == DayOfWeek.FRIDAY
+                val at = day.atTime(LocalTime.parse(if (jummah) p.jummahTime ?: time else time))
+                add(DayBlock("prayer:$day:${if (jummah) "JUMMAH" else prayer.name}", if (jummah) "Jummah" else prayer.label,
+                    at.minusMinutes(PRAYER_BEFORE_MINUTES.toLong()), at.plusMinutes(PRAYER_AFTER_MINUTES.toLong()),
+                    DayBlockKind.PRAYER, "Prayer at ${at.toLocalTime()} · 5m to reach the mosque, 20m afterward", "Planning"))
             } }
         }
         val sleep = DayBlock("sleep:$date", "Sleep", bed, nextWake, DayBlockKind.SLEEP,
@@ -119,9 +124,15 @@ object DayPlanner {
             if (!project.active) false else {
                 val milestones = data.milestones.filter { it.project && it.ownerId == project.id }.map { it.id }.toSet()
                 val todos = data.todos.filter { it.milestoneId in milestones }
-                todos.isEmpty() || todos.any { !it.completed }
+                todos.isEmpty() || todos.any { !it.completed } || data.workSlots.any { selection -> selection.date == date.toString() &&
+                    selection.mode == WorkMode.PROJECT && data.todos.any { it.id == selection.todoId && it.milestoneId in milestones } }
             }
         }.sortedWith(compareBy<Project> { it.dueDate }.thenBy { it.id })
+        val runnableProjects = projects.filter { project ->
+            val milestoneIds = data.milestones.filter { it.project && it.ownerId == project.id }.map { it.id }.toSet()
+            val todos = data.todos.filter { it.milestoneId in milestoneIds }
+            todos.isEmpty() || todos.any { !it.completed }
+        }
         val share = if (focus || projects.isEmpty()) 100 else p.studyPercent
         val flexible = mutableListOf<DayBlock>()
         var total = 0
@@ -152,16 +163,17 @@ object DayPlanner {
                         abs(studyMinutes - (total + chunk(projectLeft)) * share / 100.0))
                     val length = chunk(if (isStudy) studyLeft else projectLeft)
                     val until = at.plusMinutes(length.toLong())
-                    val project = if (!isStudy) projects.getOrNull(projectIndex++ % projects.size.coerceAtLeast(1)) else null
+                    val project = if (!isStudy) runnableProjects.getOrNull(projectIndex++ % runnableProjects.size.coerceAtLeast(1)) else null
+                    val studyBlock = isStudy || project == null
                     val nextTodo = project?.let { pr ->
                         val milestones = data.milestones.filter { it.project && it.ownerId == pr.id }.sortedBy { it.dueDate }
                         milestones.firstNotNullOfOrNull { milestone -> data.todos.filter { it.milestoneId == milestone.id && !it.completed &&
                             (it.plannedDate == null || it.plannedDate <= date.toString()) }.minByOrNull { it.position } }
                     }
-                    flexible += DayBlock("work:$at", if (isStudy) "Study & revision" else project?.title ?: "Project work", at, until,
-                        if (isStudy) DayBlockKind.STUDY else DayBlockKind.PROJECT,
-                        if (isStudy) "New learning and spaced reviews" else nextTodo?.title ?: "Work on the next milestone",
-                        if (isStudy) "Today" else project?.let { "project:${it.id}" } ?: "Projects")
+                    flexible += DayBlock("work:$at", if (studyBlock) "Study & revision" else project!!.title, at, until,
+                        if (studyBlock) DayBlockKind.STUDY else DayBlockKind.PROJECT,
+                        if (studyBlock) "New learning and spaced reviews" else nextTodo?.title ?: "Work on the next milestone",
+                        if (studyBlock) "Today" else "project:${project!!.id}")
                     total += length
                     if (isStudy) { studyMinutes += length; studyLeft -= length } else projectLeft -= length
                     at = until
@@ -169,14 +181,45 @@ object DayPlanner {
             }
         }
         if (projects.isEmpty() && p.studyPercent < 100 && !focus) warnings += "No unfinished active project; available work time is reserved for study."
-        val visible = (fixed + flexible + sleep).filter { notBefore == null || it.end > notBefore }
+        val assigned = flexible.map { block ->
+            if (!block.flexible) block else {
+                val route = WorkSlots.route(date, block.id)
+                val selection = if (applyAssignments) data.workSlots.find { it.id == block.id && it.date == date.toString() } else null
+                val problem = selection?.let { WorkSlots.problem(it, block, data, focus) }
+                if (problem != null) warnings += problem
+                if (selection == null || problem != null) block.copy(route = route) else when (selection.mode) {
+                    WorkMode.STUDY -> block.copy(title = "Your study session", kind = DayBlockKind.STUDY,
+                        detail = selection.topicIds.mapNotNull { id -> data.topics.find { it.id == id }?.title }.joinToString(", "), route = route, manual = true)
+                    WorkMode.PROJECT -> {
+                        val todo = data.todos.first { it.id == selection.todoId }
+                        val milestone = data.milestones.first { it.id == todo.milestoneId }
+                        val project = data.projects.first { it.id == milestone.ownerId }
+                        block.copy(title = project.title, kind = DayBlockKind.PROJECT,
+                            detail = "${if (todo.completed) "Completed · " else ""}${todo.title}", route = route, manual = true)
+                    }
+                }
+            }
+        }
+        data.workSlots.filter { applyAssignments && it.date == date.toString() && assigned.none { block -> block.id == it.id } }.forEach {
+            warnings += "A chosen work slot is no longer available after schedule changes. Choose its time again in Calendar."
+        }
+        val visible = (fixed + assigned + sleep).filter { notBefore == null || it.end > notBefore }
         return DaySchedule(date, wake, bed, nextWake, visible.sortedWith(compareBy<DayBlock> { it.start }.thenBy { it.id }), warnings.distinct(), focus, notBefore)
     }
 
     fun studyPlan(date: LocalDate, data: Snapshot, p: Preferences, notBefore: LocalDateTime? = null): DailyPlan {
         if (!p.autoFillDay) return StudyPlanner.buildDailyPlan(date, data, p, now = notBefore)
-        val remaining = build(date, data, p, notBefore).studyMinutes
+        val schedule = build(date, data, p, notBefore)
+        val remaining = schedule.studyMinutes
+        val manualBlocks = schedule.blocks.filter { it.kind == DayBlockKind.STUDY && it.manual }
+        val reserved = manualBlocks.sumOf { java.time.Duration.between(maxOf(it.start, notBefore ?: it.start), it.end).toMinutes().toInt().coerceAtLeast(0) }
+        val chosen = manualBlocks.flatMap { WorkSlots.items(it, data, notBefore) }
         val spent = if (notBefore == null) 0 else data.reviews.filter { it.date == date.toString() }.sumOf { it.minutes }
-        return StudyPlanner.buildDailyPlan(date, data, p, remaining + spent, notBefore)
+        val reservedIds = data.workSlots.filter { it.date == date.toString() && it.mode == WorkMode.STUDY &&
+            manualBlocks.any { block -> block.id == it.id } }.flatMap { it.topicIds }.toSet()
+        val automatic = StudyPlanner.buildDailyPlan(date, data, p, (remaining - reserved).coerceAtLeast(0) + spent, notBefore, reservedIds)
+        val firstAuto = schedule.blocks.firstOrNull { it.kind == DayBlockKind.STUDY && !it.manual }?.start ?: LocalDateTime.MAX
+        val items = (chosen + automatic.items).sortedBy { item -> item.workSlotId?.let { id -> manualBlocks.find { it.id == id }?.start } ?: firstAuto }
+        return automatic.copy(budget = remaining + spent, items = items)
     }
 }

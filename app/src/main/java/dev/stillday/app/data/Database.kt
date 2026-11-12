@@ -5,6 +5,13 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.stillday.domain.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+class PlannerConverters {
+    @TypeConverter fun topicIds(value: String): List<String> = Json.decodeFromString(value)
+    @TypeConverter fun topicIds(value: List<String>): String = Json.encodeToString(value)
+}
 
 @Dao
 abstract class PlannerDao {
@@ -29,6 +36,7 @@ abstract class PlannerDao {
     @Query("SELECT * FROM routine_occurrences") abstract suspend fun routineOccurrences(): List<RoutineOccurrence>
     @Query("SELECT * FROM review_events") abstract suspend fun reviews(): List<ReviewEvent>
     @Query("SELECT * FROM study_plans") abstract suspend fun plans(): List<StudyPlanEntry>
+    @Query("SELECT * FROM work_slot_assignments ORDER BY start") abstract suspend fun workSlots(): List<WorkSlotAssignment>
 
     @Upsert abstract suspend fun semesters(rows: List<Semester>)
     @Upsert abstract suspend fun courses(rows: List<Course>)
@@ -51,6 +59,7 @@ abstract class PlannerDao {
     @Upsert abstract suspend fun routineOccurrences(rows: List<RoutineOccurrence>)
     @Upsert abstract suspend fun reviews(rows: List<ReviewEvent>)
     @Upsert abstract suspend fun plans(rows: List<StudyPlanEntry>)
+    @Upsert abstract suspend fun workSlots(rows: List<WorkSlotAssignment>)
 
     @Query("DELETE FROM semesters") abstract suspend fun clearSemesters()
     @Query("DELETE FROM courses") abstract suspend fun clearCourses()
@@ -73,26 +82,28 @@ abstract class PlannerDao {
     @Query("DELETE FROM routine_occurrences") abstract suspend fun clearRoutineOccurrences()
     @Query("DELETE FROM review_events") abstract suspend fun clearReviews()
     @Query("DELETE FROM study_plans") abstract suspend fun clearPlans()
+    @Query("DELETE FROM work_slot_assignments") abstract suspend fun clearWorkSlots()
 
     @Transaction open suspend fun load(): Snapshot = Snapshot(semesters(), courses(), rules(), occurrences(), chapters(), topics(),
         periods(), assessments(), coverage(), assignments(), projects(), milestones(), todos(), experiments(), meals(),
-        mealOverrides(), travel(), routines(), routineOccurrences(), reviews(), plans())
+        mealOverrides(), travel(), routines(), routineOccurrences(), reviews(), plans(), workSlots())
 
     @Transaction open suspend fun replace(s: Snapshot) {
-        clearPlans(); clearReviews(); clearRoutineOccurrences(); clearRoutines(); clearTravel(); clearMealOverrides(); clearMeals()
+        clearWorkSlots(); clearPlans(); clearReviews(); clearRoutineOccurrences(); clearRoutines(); clearTravel(); clearMealOverrides(); clearMeals()
         clearExperiments(); clearTodos(); clearMilestones(); clearProjects(); clearAssignments(); clearCoverage(); clearAssessments()
         clearPeriods(); clearTopics(); clearChapters(); clearOccurrences(); clearRules(); clearCourses(); clearSemesters()
         semesters(s.semesters); courses(s.courses); rules(s.rules); occurrences(s.occurrences); chapters(s.chapters); topics(s.topics)
         periods(s.periods); assessments(s.assessments); coverage(s.coverage); assignments(s.assignments); projects(s.projects)
         milestones(s.milestones); todos(s.todos); experiments(s.experiments); meals(s.meals); mealOverrides(s.mealOverrides)
-        travel(s.travel); routines(s.routines); routineOccurrences(s.routineOccurrences); reviews(s.reviews); plans(s.plans)
+        travel(s.travel); routines(s.routines); routineOccurrences(s.routineOccurrences); reviews(s.reviews); plans(s.plans); workSlots(s.workSlots)
     }
 }
 
 @Database(entities = [Semester::class, Course::class, ScheduleRule::class, Occurrence::class, Chapter::class, Topic::class,
     ExamPeriod::class, Assessment::class, AssessmentTopic::class, Assignment::class, Project::class, Milestone::class,
     Todo::class, Experiment::class, MealTemplate::class, MealOverride::class, TravelLeg::class, Routine::class,
-    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class], version = 7, exportSchema = true)
+    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class, WorkSlotAssignment::class], version = 8, exportSchema = true)
+@TypeConverters(PlannerConverters::class)
 abstract class PlannerDatabase : RoomDatabase() {
     abstract fun planner(): PlannerDao
     companion object {
@@ -136,7 +147,14 @@ abstract class PlannerDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE exam_periods ADD COLUMN focusOverride TEXT NOT NULL DEFAULT 'AUTO'")
             }
         }
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE review_events ADD COLUMN workSlotId TEXT DEFAULT NULL")
+                db.execSQL("CREATE TABLE IF NOT EXISTS work_slot_assignments (id TEXT NOT NULL, date TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, mode TEXT NOT NULL, topicIds TEXT NOT NULL DEFAULT '[]', todoId TEXT DEFAULT NULL, PRIMARY KEY(id))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_work_slot_assignments_date ON work_slot_assignments(date)")
+            }
+        }
         fun create(context: Context) = Room.databaseBuilder(context, PlannerDatabase::class.java, "stillday.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
     }
 }

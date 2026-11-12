@@ -309,12 +309,12 @@ object Forms {
         val p = vm.state.value.preferences
         return FormSpec("Prayer times", Prayer.entries.map { prayer ->
             FormField("${prayer.name}Time", prayer.label, p.prayerTimes[prayer.name].orEmpty())
-        } + FormField("minutes", "Minutes per prayer", p.prayerMinutes.toString()),
-            "Enter your local times manually in 24-hour format. Update them as they change. Wake-up is ${p.wakeBeforeFajrMinutes} minutes before Fajr, and bedtime allows your sleep target.") { v ->
+        } + FormField("jummahTime", "Jummah · Friday only · optional", p.jummahTime.orEmpty(), optional = true),
+            "Each prayer reserves 5 minutes before its time to reach the mosque and ends 20 minutes after. Jummah replaces Dhuhr on Friday; leave its optional time blank to use your Dhuhr time. Wake-up still follows Fajr.") { v ->
             val times = Prayer.entries.associate { it.name to v.timeValue("${it.name}Time") }
-            val minutes = v.number("minutes", 1..180)
-            Validation.preferences(p.copy(prayerTimes = times, prayerMinutes = minutes))
-            vm.preferences { it.copy(prayerTimes = times, prayerMinutes = minutes) }
+            val jummah = v["jummahTime"]?.takeIf { it.isNotBlank() }?.let { v.timeValue("jummahTime") }
+            Validation.preferences(p.copy(prayerTimes = times, jummahTime = jummah))
+            vm.preferences { it.copy(prayerTimes = times, jummahTime = jummah) }
         }
     }
 }

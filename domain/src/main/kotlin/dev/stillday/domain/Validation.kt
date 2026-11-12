@@ -26,6 +26,11 @@ object Validation {
             val times = Prayer.entries.map { LocalTime.parse(p.prayerTimes.getValue(it.name)) }
             require(times.zipWithNext().all { (a, b) -> b > a }) { "Prayer times must run from Fajr through Isha in order." }
         }
+        p.jummahTime?.let { time ->
+            val at = LocalTime.parse(time)
+            require(p.prayerTimes.isNotEmpty() && at > LocalTime.parse(p.prayerTimes.getValue(Prayer.FAJR.name)) &&
+                at < LocalTime.parse(p.prayerTimes.getValue(Prayer.ASR.name))) { "Set Jummah after Fajr and before Asr." }
+        }
         require(!p.wakeAlarmEnabled || p.prayerTimes.isNotEmpty()) { "Set prayer times before enabling the Fajr alarm." }
     }
     fun snapshot(s: Snapshot) {
@@ -34,7 +39,7 @@ object Validation {
             s.chapters.map { it.id }, s.topics.map { it.id }, s.periods.map { it.id }, s.assessments.map { it.id },
             s.assignments.map { it.id }, s.projects.map { it.id }, s.milestones.map { it.id }, s.todos.map { it.id },
             s.experiments.map { it.id }, s.meals.map { it.id }, s.mealOverrides.map { it.id }, s.travel.map { it.id },
-            s.routines.map { it.id }, s.routineOccurrences.map { it.id }, s.reviews.map { it.id }, s.plans.map { it.id }).forEach(::unique)
+            s.routines.map { it.id }, s.routineOccurrences.map { it.id }, s.reviews.map { it.id }, s.plans.map { it.id }, s.workSlots.map { it.id }).forEach(::unique)
         require(s.coverage.map { it.assessmentId to it.topicId }.distinct().size == s.coverage.size)
         require(s.meals.map { it.weekday to it.slot }.distinct().size == s.meals.size)
         require(s.mealOverrides.map { it.date to it.slot }.distinct().size == s.mealOverrides.size)
@@ -65,5 +70,20 @@ object Validation {
         s.routineOccurrences.forEach { r -> has(s.routines.any { it.id == r.routineId }); r.date.date(); LocalTime.parse(r.time); require(r.durationMinutes in 1..1440) }
         s.reviews.forEach { r -> has(s.topics.any { it.id == r.topicId }); r.date.date(); require(r.minutes in 1..1440) }
         s.plans.forEach { p -> has(s.topics.any { it.id == p.topicId }); p.date.date(); require(p.minutes in 1..1440) }
+        require(s.workSlots.size <= 10000)
+        s.workSlots.forEach { slot ->
+            slot.date.date()
+            require(slot.id == "work:${slot.start}" && slot.end.dateTime() > slot.start.dateTime() &&
+                java.time.Duration.between(slot.start.dateTime(), slot.end.dateTime()).toMinutes() in 30..1440)
+            require(slot.topicIds.size <= 10000 && slot.topicIds.distinct().size == slot.topicIds.size)
+            if (slot.mode == WorkMode.STUDY) {
+                require(slot.topicIds.isNotEmpty() && slot.todoId == null)
+                has(slot.topicIds.all { id -> s.topics.any { it.id == id } })
+            } else {
+                require(slot.topicIds.isEmpty() && slot.todoId != null)
+                val todo = s.todos.find { it.id == slot.todoId }
+                has(todo != null && s.milestones.any { it.id == todo.milestoneId && it.project })
+            }
+        }
     }
 }

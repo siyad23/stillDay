@@ -12,8 +12,8 @@ android {
         applicationId = "dev.stillday.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = providers.gradleProperty("stilldayVersionCode").map(String::toInt).getOrElse(18)
-        versionName = providers.gradleProperty("stilldayVersionName").getOrElse("1.0.16")
+        versionCode = providers.gradleProperty("stilldayVersionCode").map(String::toInt).getOrElse(19)
+        versionName = providers.gradleProperty("stilldayVersionName").getOrElse("1.0.17")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true; buildConfig = true }

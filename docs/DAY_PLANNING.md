@@ -69,3 +69,9 @@ The alarm follows the configured university timezone; its scheduled instant is d
 The public Clock API can create an alarm, but cannot reliably replace or disable a repeating alarm when a timetable changes. Dismissing a repeating alarm only skips its next instance. Therefore the automatic alarm is managed by Stillday; Clock backups are separate and must be edited or removed in Clock.
 
 References: [Android AlarmClock API](https://developer.android.com/reference/android/provider/AlarmClock), [alarm scheduling](https://developer.android.com/develop/background-work/services/alarms/schedule), [AudioManager](https://developer.android.com/reference/android/media/AudioManager).
+
+## Full Calendar filters
+
+Open Calendar from Today. Under **Filter calendar**, choose **All**, **Exams**, **Classes** or **Other routines**. Exams includes quizzes and both provisional and detailed exams. Classes includes theory, labs, cancelled sessions and sessions suppressed by exam periods. Other routines shows meals, prayer, study/project slots, routines, travel and assignment/project/lab submission deadlines. Meal override controls appear only for All or Other routines.
+
+Filters apply to both day and whole-week views. The selection stays in place while changing dates, opening an event and returning, or recreating the screen. All restores the complete calendar. Filtering changes only the view; saved schedules and automatic planning stay intact.

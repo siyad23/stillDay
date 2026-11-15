@@ -21,6 +21,8 @@ import java.time.DayOfWeek
 @Composable fun CalendarScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     var selected by rememberSaveable { mutableStateOf(vm.repository.today().toString()) }
     var week by rememberSaveable { mutableStateOf(false) }
+    var filterName by rememberSaveable { mutableStateOf(CalendarFilter.ALL.name) }
+    val filter = CalendarFilter.valueOf(filterName)
     var dateError by remember { mutableStateOf(false) }
     val date = runCatching { selected.date() }.getOrElse { vm.repository.today() }
     val monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -35,6 +37,13 @@ import java.time.DayOfWeek
         }
         DateTimeField("Date", selected, true, isError = dateError) { selected = it; dateError = runCatching { DisplayDates.parse(it) }.isFailure }
         Row(verticalAlignment = Alignment.CenterVertically) { Switch(week, { week = it }); Text("  Show whole week") }
+        Text("Filter calendar", style = MaterialTheme.typography.labelLarge)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            CalendarFilter.entries.forEach { option ->
+                FilterChip(filter == option, { filterName = option.name }, label = { Text(option.label) },
+                    modifier = Modifier.semantics { contentDescription = "Calendar filter: ${option.label}" })
+            }
+        }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             (0..6).forEach { offset ->
                 val day = monday.plusDays(offset.toLong())
@@ -49,10 +58,10 @@ import java.time.DayOfWeek
                 val suppressed = Recurrence.suppressed(o, s)
                 events += CalendarItem(timeLabel(o.start), s.courses.find { it.id == o.courseId }?.name ?: "Class",
                     when { o.cancelled -> "Cancelled"; suppressed -> "Exam period · no class"; else -> "${o.location}${if (o.overridden) " · rescheduled" else ""}" }, "class:${o.id}",
-                    if (o.cancelled || suppressed) ActivityCategory.REST else ActivityCategory.CLASS, timeLabel(o.end))
+                    if (o.cancelled || suppressed) ActivityCategory.REST else ActivityCategory.CLASS, timeLabel(o.end), CalendarFilter.CLASSES)
             }
             s.assessments.filter { Recurrence.assessmentDate(it, s) == day }.forEach { a ->
-                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, if (a.at == null) "Provisional date · routine pending" else a.location, "assessment:${a.id}", ActivityCategory.DEADLINE)
+                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, if (a.at == null) "Provisional date · routine pending" else a.location, "assessment:${a.id}", ActivityCategory.DEADLINE, filter = CalendarFilter.EXAMS)
             }
             s.travel.filter { it.departure.take(10) == day.toString() }.forEach { t -> events += CalendarItem(timeLabel(t.departure),
                 "Travel to ${if (t.destination == Place.OTHER) t.destinationName else t.destination.name.pretty()}", "Arrive ${dateLabel(t.arrival)} ${timeLabel(t.arrival)}", category = ActivityCategory.TRAVEL) }
@@ -69,22 +78,29 @@ import java.time.DayOfWeek
                 events += CalendarItem(timeLabel(block.start.toString()), block.title, block.detail, block.route?.takeUnless { it == "Today" }, block.kind.category(), timeLabel(block.end.toString()))
             }
             if (Recurrence.focus(day, s.periods, state.preferences).active) Text("Exam focus · assignment and project suggestions paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            if (events.isEmpty()) Text("No scheduled activities", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-            events.sortedBy { it.time }.forEach { event ->
+            val visibleEvents = events.filter { filter == CalendarFilter.ALL || it.filter == filter }
+            if (visibleEvents.isEmpty()) Text(when (filter) {
+                CalendarFilter.ALL -> "No scheduled activities"
+                CalendarFilter.EXAMS -> "No quizzes or exams scheduled"
+                CalendarFilter.CLASSES -> "No classes or labs scheduled"
+                CalendarFilter.OTHER -> "No other routines scheduled"
+            }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            visibleEvents.sortedBy { it.time }.forEach { event ->
                 ActivityCard(event.title, event.subtitle, event.category, time = event.time, endTime = event.endTime,
                     modifier = if (event.route?.startsWith("work-slot:") == true) Modifier.semantics {
                         contentDescription = "Choose work for ${dateLabel(day.toString())} ${event.time}–${event.endTime}"
                     } else Modifier, onClick = event.route?.let { { navigate(it) } })
             }
-            if (!week) {
+            if (!week && filter in listOf(CalendarFilter.ALL, CalendarFilter.OTHER)) {
                 SectionTitle("Meals", "Override") { open(Forms.mealOverride(vm, day.toString())) }
                 LifeResolver.meals(day, s, state.preferences).forEach { meal -> ItemRow("${meal.time} · ${meal.slot}", meal.description, if (meal.skipped) "Skipped" else "${meal.durationMinutes}m", category = ActivityCategory.MEAL, onClick = { open(Forms.mealOverride(vm, day.toString(), meal.slot)) }) }
             }
         }
     }
 }
+private enum class CalendarFilter(val label: String) { ALL("All"), EXAMS("Exams"), CLASSES("Classes"), OTHER("Other routines") }
 private data class CalendarItem(val time: String, val title: String, val subtitle: String, val route: String? = null,
-    val category: ActivityCategory = ActivityCategory.LIFE, val endTime: String? = null)
+    val category: ActivityCategory = ActivityCategory.LIFE, val endTime: String? = null, val filter: CalendarFilter = CalendarFilter.OTHER)
 
 @Composable fun LifeScreen(vm: PlannerViewModel, state: AppState, open: (FormSpec) -> Unit, navigate: (String) -> Unit) {
     var savedTab by rememberSaveable { mutableStateOf(0) }

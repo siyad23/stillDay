@@ -1,10 +1,16 @@
 # Stillday verification
 
-Latest test date: 12 November 2026 (Asia/Dhaka).
+Latest test date: 15 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.16**, version code **18**, with an Experiments-first lab workflow and individually controlled notification categories and sounds. Database schema is 9. Earlier feature checks below are historical verification.
+Current development APK: version **1.0.17**, version code **19**, with full Calendar category filters. Database schema remains 9. Earlier feature checks below are historical verification.
 
-## Experiments and notification controls
+## Full Calendar filters
+
+Debug/release APK builds and debug lint pass. Two targeted Pixel 7/API 36 UI checks pass with no skips: category isolation for quizzes, provisional exams, theory/lab classes, cancelled and exam-suppressed classes, routines, meals and non-exam deadlines; restoring All; day/week behavior; empty results; selected-date/filter retention through event navigation, Back and activity recreation.
+
+An initial test tapped All while the scroll position was settling. The test now anchors the filter row, waits for idle and verifies selected state; both checks pass in the corrected run. The production filter behavior was unchanged. Existing 212 JVM checks belong to 1.0.16 and were not rerun for this UI-only change. No physical-device verification or GitHub publication is claimed.
+
+## Historical experiments and notification controls
 
 All **212 JVM tests pass (161 domain + 51 app)**; one optional live-GitHub check is skipped. Debug and locally signed release builds and lint pass. Each lint variant reports zero errors, 23 warnings and three hints.
 

@@ -54,7 +54,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Quizzes and provisional/detailed exams with whole-chapter or individual topic/problem syllabus selection and independent preparation checklists.
 - Exam periods that suspend classes and automatically activate an editable focus window. Assignment/project suggestions pause while deadline warnings remain visible.
 - Assignments and active/paused personal projects, each with milestones and TODOs. Assignment submission can be marked complete.
-- A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today. Back restores the actual previous page, its selected section and scroll position.
+- A dedicated Projects main tab with task progress and upcoming milestones; Calendar opens from Today with All, Exams, Classes and Other routines filters for day/week views. Back restores the actual previous page, its selected section and scroll position.
 - An Experiments tab for experiment-based labs, with optional schedules, detailed session/status pages and a Work list of every prework/report. Prework is due by the experiment start; report suggestions and reminders follow its end.
 - [Project-based and experiment-based labs](docs/LABS.md): project-based courses immediately appear in Projects with shared milestones/TODOs, while experiment-based labs retain their prework/report workflow.
 - Weekly hall meals with Eat/Skip rules for each weekday and meal, date-specific overrides, explicit/return travel, location inference, and clearly labeled assumed Monday returns.

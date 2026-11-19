@@ -44,6 +44,17 @@ class DayPlannerTest {
         assertEquals(810, adjusted.studyMinutes); assertEquals(270, adjusted.projectMinutes)
         assertTrue(work(adjusted).all { it.minutes >= 30 })
     }
+    @Test(timeout = 2000) fun secondPrecisionCommitmentsUseOnlyWholeMinutesAndAlwaysFinish() {
+        val data = data().copy(occurrences = listOf(occurrence("seconds", "09:00:30", "10:00:45")))
+        listOf(0, 50, 100).forEach { share ->
+            val plan = DayPlanner.build(date, data, p.copy(studyPercent = share))
+            val blocks = work(plan)
+            assertEquals(999, blocks.sumOf { it.minutes })
+            assertTrue(blocks.all { it.minutes >= 30 })
+            assertTrue(blocks.none { it.start < at("10:10:45") && it.end > at("08:50:30") })
+            assertTrue(blocks.zipWithNext().all { (a, b) -> a.end <= b.start })
+        }
+    }
     @Test fun zeroAndHundredPercentAllocateOnlyTheChosenWork() {
         assertEquals(0, DayPlanner.build(date, data(), p.copy(studyPercent = 0)).studyMinutes)
         assertEquals(0, DayPlanner.build(date, data(), p.copy(studyPercent = 100)).projectMinutes)

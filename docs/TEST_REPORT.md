@@ -1,8 +1,18 @@
 # Stillday verification
 
-Latest test date: 15 November 2026 (Asia/Dhaka).
+Latest test date: 19 November 2026 (Asia/Dhaka).
 
-Current development APK: version **1.0.17**, version code **19**, with full Calendar category filters. Database schema remains 9. Earlier feature checks below are historical verification.
+Current local development APK: version **1.0.17**, version code **19**, with full Calendar category filters and the widget content-refresh correction. Database schema remains 9. Earlier feature checks below are historical verification.
+
+## Widget content refresh
+
+The JVM regression run passes 216 tests (162 domain and 54 app), with one optional live-GitHub check skipped. Debug APK assembly and debug lint pass; lint reports zero errors, 23 warnings and three hints. The targeted Pixel 7 / Android 16 run passes 13 device checks, with three opt-in launcher/demo/cold-process fixtures skipped.
+
+The real widget-host checks cover saved title changes, completed assignment removal, switching an existing service-backed placement to direct collection updates, and replacing deliberately stale activity rows through the time-refresh broadcast without a database edit. A registered widget refresh alarm is verified while notifications are disabled. Resizing, busy/compact agendas, scrolling to the overflow footer, click routes, Add Quiz and day/night theme checks pass. The complete bounded busy-agenda RemoteViews payload measured 52,168 bytes.
+
+Three new JVM checks cover refreshes at activity starts/ends, university-local midnight, and the bounded fallback interval. An additional domain regression covers second-precision activity times: whole-minute work budgets must terminate without repeatedly appending zero-duration blocks. The initial emulator run exposed that planner loop; it is corrected. A subsequent test-host binding failure came from asynchronous permission cleanup; cleanup now waits for revocation before the next test grants binding, and the complete targeted suite passes.
+
+The installable local artifact is `artifacts/Stillday-widget-fix.apk`. No database migration, physical-phone verification or publication was performed. Android can delay the non-waking refresh alarm; overnight idle delivery and older Android versions were not exercised in this run.
 
 ## Full Calendar filters
 

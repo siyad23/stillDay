@@ -3,7 +3,7 @@ package dev.stillday.app
 import dev.stillday.domain.*
 import java.time.LocalDateTime
 
-internal data class WidgetAgenda(val days: List<AgendaDay>, val hasMore: Boolean) {
+internal data class WidgetAgenda(val days: List<AgendaDay>, val hasMore: Boolean, val nextRefreshAt: LocalDateTime) {
     companion object {
         // RemoteViews cross a shared Binder buffer. A full week of generated study, prayer,
         // meal and course rows can exceed it, especially with multiple launcher sizes.
@@ -20,7 +20,12 @@ internal data class WidgetAgenda(val days: List<AgendaDay>, val hasMore: Boolean
                 remaining -= entries.size
                 day.copy(entries = entries)
             }.filterIndexed { index, day -> index == 0 || day.entries.isNotEmpty() }
-            return WidgetAgenda(days, agenda.sumOf { it.entries.size } > MAX_ENTRIES)
+            // Compute this before truncation so a busy agenda still refreshes at its next change.
+            // A short fallback also keeps the remaining work budgets current as time passes.
+            val nextRefresh = (agenda.asSequence().flatMap { it.entries.asSequence() }
+                .flatMap { sequenceOf(it.at, it.end).filterNotNull() }.filter { it > now } +
+                sequenceOf(now.plusMinutes(30), now.toLocalDate().plusDays(1).atStartOfDay())).min()
+            return WidgetAgenda(days, agenda.sumOf { it.entries.size } > MAX_ENTRIES, nextRefresh)
         }
 
         private fun boundedText(value: String): String {

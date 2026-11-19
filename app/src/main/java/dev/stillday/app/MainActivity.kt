@@ -8,6 +8,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.stillday.app.ui.PlannerApp
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        AgendaWidgets.refresh(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

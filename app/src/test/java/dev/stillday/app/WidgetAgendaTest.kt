@@ -13,6 +13,30 @@ class WidgetAgendaTest {
             Assignment("a-" + it, "c", title + it, now.plusMinutes(60L + it).toString())
         })
     private val prefs = Preferences(autoFillDay = false)
+    @Test fun refreshesWhenAnOngoingClassEndsWithoutAnySavedChanges() {
+        val data = data(0).copy(occurrences = listOf(Occurrence("current", "c", "r", now.toLocalDate().toString(),
+            now.minusMinutes(10).toString(), now.plusMinutes(5).toString())))
+        val widget = WidgetAgenda.build(now, data, prefs)
+        assertEquals(now.plusMinutes(5), widget.nextRefreshAt)
+        assertTrue(widget.days.flatMap { it.entries }.any { it.id == "class:current" })
+        assertFalse(WidgetAgenda.build(widget.nextRefreshAt, data, prefs).days.flatMap { it.entries }.any { it.id == "class:current" })
+    }
+    @Test fun refreshesAtTheNextStartAndNeverSchedulesInThePast() {
+        val data = data(0).copy(occurrences = listOf(Occurrence("next", "c", "r", now.toLocalDate().toString(),
+            now.plusMinutes(8).toString(), now.plusMinutes(20).toString())))
+        assertEquals(now.plusMinutes(8), WidgetAgenda.build(now, data, prefs).nextRefreshAt)
+        val atStart = now.plusMinutes(8)
+        assertEquals(now.plusMinutes(20), WidgetAgenda.build(atStart, data, prefs).nextRefreshAt)
+    }
+    @Test fun rollsOverAtUniversityMidnightAndBoundsFallbackDelay() {
+        val late = now.withHour(23).withMinute(59)
+        val widget = WidgetAgenda.build(late, Snapshot(), prefs)
+        assertEquals(late.toLocalDate().plusDays(1).atStartOfDay(), widget.nextRefreshAt)
+        val nextDay = WidgetAgenda.build(widget.nextRefreshAt, Snapshot(), prefs)
+        assertEquals(widget.nextRefreshAt.toLocalDate(), nextDay.days.first().date)
+        assertTrue(nextDay.nextRefreshAt > widget.nextRefreshAt)
+        assertTrue(nextDay.nextRefreshAt <= widget.nextRefreshAt.plusMinutes(30))
+    }
     @Test fun busyWeeksAreBoundedWithoutChangingTheCalendarOrRoutes() {
         val data = data(400)
         val widget = WidgetAgenda.build(now, data, prefs)

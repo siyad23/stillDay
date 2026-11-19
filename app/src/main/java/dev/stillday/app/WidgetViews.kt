@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
 import androidx.core.net.toUri
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.ColorScheme
@@ -20,12 +21,14 @@ import dev.stillday.domain.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Standard Android RemoteViews: no Compose session or background rendering worker is needed. */
 internal object WidgetViews {
-    fun agenda(context: Context, id: Int, preferences: Preferences, options: Bundle, month: String): RemoteViews {
+    fun agenda(context: Context, id: Int, preferences: Preferences, options: Bundle, month: String,
+        collection: AgendaViewsFactory? = null): RemoteViews {
         val compact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180) < 280
         return RemoteViews(context.packageName, R.layout.agenda_widget_native).apply {
             widgetImage(context, preferences, R.id.widget_background, R.drawable.widget_surface, 230) { it.background }
@@ -45,9 +48,15 @@ internal object WidgetViews {
             setOnClickPendingIntent(R.id.widget_empty, activity(context, id * 4 + 1, "Today"))
             setOnClickPendingIntent(R.id.widget_add, quizIntent(context, id * 4 + 2))
             if (preferences.onboardingComplete) {
-                val service = Intent(context, AgendaRemoteViewsService::class.java)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).setData(("stillday://agenda-widget/" + id).toUri())
-                setRemoteAdapter(R.id.widget_agenda_list, service)
+                if (Build.VERSION.SDK_INT >= 31 && collection != null) {
+                    // Deliver the new rows in the same update as the header. In particular,
+                    // Android 16 hosts may retain old service rows after an invalidation.
+                    setRemoteAdapter(R.id.widget_agenda_list, collection.collectionItems())
+                } else {
+                    val service = Intent(context, AgendaRemoteViewsService::class.java)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id).setData(("stillday://agenda-widget/" + id).toUri())
+                    setRemoteAdapter(R.id.widget_agenda_list, service)
+                }
                 val template = Intent(context, MainActivity::class.java).setAction("dev.stillday.app.WIDGET_ITEM_" + id)
                 setPendingIntentTemplate(R.id.widget_agenda_list, PendingIntent.getActivity(context, id * 4 + 3,
                     template, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
@@ -121,37 +130,47 @@ internal class AgendaViewsFactory(private val context: Context, private val widg
             val repository = (context.applicationContext as StilldayApplication).repository
             repository.initialize()
             val state = repository.state.value
-            preferences = state.preferences
             val now = repository.now()
-            today = now.toLocalDate()
-            compact = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
-                .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180) < 280
-            val agenda = WidgetAgenda.build(now, state.data, preferences)
-            val locale = context.resources.configuration.locales[0] ?: Locale.getDefault()
-            val time = DateTimeFormatter.ofPattern(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a", locale)
-            rows = agenda.days.flatMap { day ->
-                val result = mutableListOf<NativeAgendaRow>()
-                if (day.date == today && (day.pendingTasks > 0 || day.focus)) result += NativeAgendaRow(day.date, true,
-                    if (day.pendingTasks > 0) day.pendingTasks.toString() + " pending " + if (day.pendingTasks == 1) "task" else "tasks" else "Exam focus",
-                    if (day.focus && day.pendingTasks > 0) "Exam focus · projects paused" else "", ActivityCategory.STUDY, "Today")
-                day.entries.forEach { entry ->
-                    val timing = entry.at?.format(time)?.let { start -> start + (entry.end?.let { end ->
-                        "–" + (if (end.toLocalDate() != entry.date) DisplayDates.format(end.toLocalDate()) + " " else "") + end.format(time)
-                    } ?: "") } ?: "All day"
-                    result += NativeAgendaRow(day.date, result.isEmpty(), entry.title,
-                        listOf(timing, entry.detail).filter { it.isNotBlank() }.joinToString(" · "), entry.kind.category(), entry.route)
-                }
-                if (result.isEmpty()) result += NativeAgendaRow(day.date, true, "Nothing scheduled",
-                    "A little room to breathe.", ActivityCategory.REST, "Today")
-                result
-            }
-            more = agenda.hasMore
+            load(now, WidgetAgenda.build(now, state.data, state.preferences), state.preferences,
+                AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId))
         } catch (error: Exception) {
             android.util.Log.e("StilldayWidgets", "Could not load agenda collection", error)
             rows = listOf(NativeAgendaRow(today, false, "Open Stillday", "Refresh your agenda in the app.", ActivityCategory.LIFE, "Today"))
             more = false
         }
     }
+
+    // The provider and the legacy collection service share exactly the same row rendering.
+    fun load(now: LocalDateTime, agenda: WidgetAgenda, prefs: Preferences, options: Bundle) {
+        preferences = prefs
+        today = now.toLocalDate()
+        compact = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180) < 280
+        val locale = context.resources.configuration.locales[0] ?: Locale.getDefault()
+        val time = DateTimeFormatter.ofPattern(if (android.text.format.DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a", locale)
+        rows = agenda.days.flatMap { day ->
+            val result = mutableListOf<NativeAgendaRow>()
+            if (day.date == today && (day.pendingTasks > 0 || day.focus)) result += NativeAgendaRow(day.date, true,
+                if (day.pendingTasks > 0) day.pendingTasks.toString() + " pending " + if (day.pendingTasks == 1) "task" else "tasks" else "Exam focus",
+                if (day.focus && day.pendingTasks > 0) "Exam focus · projects paused" else "", ActivityCategory.STUDY, "Today")
+            day.entries.forEach { entry ->
+                val timing = entry.at?.format(time)?.let { start -> start + (entry.end?.let { end ->
+                    "–" + (if (end.toLocalDate() != entry.date) DisplayDates.format(end.toLocalDate()) + " " else "") + end.format(time)
+                } ?: "") } ?: "All day"
+                result += NativeAgendaRow(day.date, result.isEmpty(), entry.title,
+                    listOf(timing, entry.detail).filter { it.isNotBlank() }.joinToString(" · "), entry.kind.category(), entry.route)
+            }
+            if (result.isEmpty()) result += NativeAgendaRow(day.date, true, "Nothing scheduled",
+                "A little room to breathe.", ActivityCategory.REST, "Today")
+            result
+        }
+        more = agenda.hasMore
+    }
+
+    @RequiresApi(31)
+    fun collectionItems(): RemoteViews.RemoteCollectionItems = RemoteViews.RemoteCollectionItems.Builder()
+        .setHasStableIds(false).setViewTypeCount(getViewTypeCount()).apply {
+            repeat(getCount()) { position -> addItem(getItemId(position), getViewAt(position)) }
+        }.build()
     override fun getCount(): Int = rows.size + if (more) 1 else 0
     override fun getViewAt(position: Int): RemoteViews {
         if (position >= rows.size) return RemoteViews(context.packageName, R.layout.agenda_widget_footer).apply {

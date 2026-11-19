@@ -157,7 +157,10 @@ object DayPlanner {
                 }
                 // Stable full-day slots alternate work where possible. Advancing the clock only
                 // hides finished slots and reduces remaining minutes; it never reallocates them.
-                while (at < end) {
+                // Gaps can include seconds (for example after a backup import). The
+                // budgets contain whole minutes, so stop once those minutes are used;
+                // comparing against end can otherwise append zero-length blocks forever.
+                while (studyLeft > 0 || projectLeft > 0) {
                     val isStudy = studyLeft > 0 && (projectLeft == 0 ||
                         abs(studyMinutes + chunk(studyLeft) - (total + chunk(studyLeft)) * share / 100.0) <=
                         abs(studyMinutes - (total + chunk(projectLeft)) * share / 100.0))

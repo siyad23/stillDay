@@ -126,16 +126,29 @@ class WidgetRenderingTest {
     @Test fun populatedAgendaLoadsItsScrollingCollectionInARealWidgetHost() = hostedAgenda(false)
     @Test fun busyAgendaLoadsItsScrollingCollectionInARealWidgetHost() = hostedAgenda(true)
     @Test fun compactAgendaLoadsAndRefreshesWithoutReplacingTheWidget() = hostedAgenda(false, compact = true)
+    @Test fun agendaRowsRefreshAfterEditsAndTimeChangesWithoutReplacingTheWidget() = hostedAgenda(false, refresh = true)
     @Test fun quizShortcutLoadsInARealWidgetHost() = hostedAgenda(false, quiz = true)
-    private fun hostedAgenda(busy: Boolean, compact: Boolean = false, quiz: Boolean = false) = runBlocking {
+    private fun hostedAgenda(busy: Boolean, compact: Boolean = false, quiz: Boolean = false, refresh: Boolean = false) = runBlocking {
         val app = ApplicationProvider.getApplicationContext<StilldayApplication>()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val repo = app.repository
         repo.initialize()
-        repo.preferences { Preferences(timezone = "Asia/Dhaka", onboardingComplete = true, reminderSetupDone = true, demoData = true) }
+        repo.preferences { Preferences(timezone = "Asia/Dhaka", onboardingComplete = true, reminderSetupDone = true,
+            demoData = true, notifications = false, autoFillDay = !refresh) }
         repo.change {
             val demo = DemoData.create(repo.today())
-            if (!busy) demo else demo.copy(assignments = demo.assignments + (1..400).map { index -> Assignment("widget-task-" + index,
+            if (refresh) {
+                val now = repo.now()
+                val date = now.toLocalDate().toString()
+                Snapshot(semesters = demo.semesters, courses = listOf(
+                    Course("earlier", demo.semesters.first().id, "Earlier class"),
+                    Course("upcoming", demo.semesters.first().id, "Upcoming class")), rules = listOf(
+                    ScheduleRule("r1", "earlier", now.dayOfWeek.value, "06:00", anchorDate = date),
+                    ScheduleRule("r2", "upcoming", now.dayOfWeek.value, "09:00", anchorDate = date)), occurrences = listOf(
+                    Occurrence("earlier", "earlier", "r1", date, now.minusMinutes(20).toString(), now.minusMinutes(5).toString()),
+                    Occurrence("upcoming", "upcoming", "r2", date, now.plusMinutes(15).toString(), now.plusMinutes(30).toString())),
+                    assignments = listOf(Assignment("refresh-task", "upcoming", "Refresh task before", now.plusMinutes(10).toString())))
+            } else if (!busy) demo else demo.copy(assignments = demo.assignments + (1..400).map { index -> Assignment("widget-task-" + index,
                 demo.courses.first().id, "Assignment " + index + ": " + "A long assignment title ".repeat(20),
                 repo.today().atTime(12,0).plusMinutes(index.toLong()).toString()) })
         }
@@ -154,7 +167,8 @@ class WidgetRenderingTest {
         }
         try {
             val provider = if (quiz) QuizWidgetReceiver::class.java else AgendaWidgetReceiver::class.java
-            assertTrue(manager.bindAppWidgetIdIfAllowed(widgetId, ComponentName(app, provider), options))
+            assertTrue("Test host must have widget binding permission",
+                manager.bindAppWidgetIdIfAllowed(widgetId, ComponentName(app, provider), options))
             ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                 lateinit var view: AppWidgetHostView
                 scenario.onActivity { activity ->
@@ -184,6 +198,43 @@ class WidgetRenderingTest {
                     }
                 } catch (e: Exception) { throw AssertionError("Hosted widget did not render its agenda: " + last, e) }
                 assertFalse(last, last.contains("Can't show content", true))
+                if (refresh) {
+                    suspend fun awaitRows(check: (String) -> Boolean) {
+                        try {
+                            withTimeout(20_000) {
+                                while (true) {
+                                    instrumentation.runOnMainSync { last = texts(view).joinToString("\n") }
+                                    if (check(last)) break
+                                    delay(150)
+                                }
+                            }
+                        } catch (error: Exception) { throw AssertionError("Widget rows did not refresh: " + last, error) }
+                    }
+                    // An existing placement can still have the old service-backed adapter
+                    // cached by its launcher when this APK is installed over an older build.
+                    manager.updateAppWidget(widgetId, WidgetViews.agenda(app, widgetId, repo.state.value.preferences, options, "November"))
+                    awaitRows { it.contains("Refresh task before") }
+                    repo.change { data -> data.copy(assignments = data.assignments.map { it.copy(title = "Refresh task after") }) }
+                    awaitRows { it.contains("Refresh task after") && !it.contains("Refresh task before") }
+                    repo.change { data -> data.copy(assignments = data.assignments.map { it.copy(completed = true) }) }
+                    awaitRows { it.contains("Upcoming class") && !it.contains("Refresh task after") }
+
+                    // Reproduce the phone screenshot: the host holds rows from an earlier time.
+                    // A time-triggered broadcast must replace them without any database edit.
+                    val oldNow = repo.now().minusMinutes(30)
+                    val state = repo.state.value
+                    val stale = AgendaViewsFactory(app, widgetId).apply {
+                        load(oldNow, WidgetAgenda.build(oldNow, state.data, state.preferences), state.preferences, options)
+                    }
+                    manager.updateAppWidget(widgetId, WidgetViews.agenda(app, widgetId, state.preferences, options, "November", stale))
+                    awaitRows { it.contains("Earlier class") }
+                    app.sendBroadcast(android.content.Intent(app, AgendaWidgetReceiver::class.java).setAction(AgendaWidgets.ACTION_REFRESH))
+                    awaitRows { it.contains("Upcoming class") && !it.contains("Earlier class") }
+                    assertEquals(widgetId, view.appWidgetId)
+                    val alarms = ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("dumpsys alarm"))
+                        .use { it.readBytes().toString(Charsets.UTF_8) }
+                    assertTrue("Widget must retain its own refresh alarm with notifications disabled", alarms.contains(AgendaWidgets.ACTION_REFRESH))
+                }
                 if (quiz) {
                     // Existing placements can hold the older layout. Refresh must reinflate it,
                     // otherwise its fixed root background survives a RemoteViews reapply.
@@ -266,8 +317,9 @@ class WidgetRenderingTest {
             }
         } finally {
             host.stopListening(); host.deleteHost()
+            // Wait for revocation to finish before the next test grants binding again.
             ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
-                "appwidget revokebind --package " + app.packageName + " --user 0")).close()
+                "appwidget revokebind --package " + app.packageName + " --user 0")).use { it.readBytes() }
         }
     }
     @Test fun busyAgendaPayloadStaysWellBelowTheSharedBinderLimit() = runBlocking {
@@ -280,12 +332,17 @@ class WidgetRenderingTest {
             demo.copy(assignments = demo.assignments + (1..400).map { index -> Assignment("size-task-" + index,
                 demo.courses.first().id, "Long title ".repeat(100), repo.today().atTime(12,0).plusMinutes(index.toLong()).toString()) })
         }
-        val views = WidgetViews.agenda(app, 1, repo.state.value.preferences, Bundle(), "November")
+        val state = repo.state.value
+        val now = repo.now()
+        val collection = AgendaViewsFactory(app, 1).apply {
+            load(now, WidgetAgenda.build(now, state.data, state.preferences), state.preferences, Bundle())
+        }
+        val views = WidgetViews.agenda(app, 1, state.preferences, Bundle(), "November", collection)
         val parcel = Parcel.obtain()
         try {
             views.writeToParcel(parcel, 0)
             android.util.Log.i("WidgetRenderingTest", "Bounded agenda parcel bytes: " + parcel.dataSize())
-            assertTrue("Widget payload: " + parcel.dataSize(), parcel.dataSize() < 25_000)
+            assertTrue("Widget payload: " + parcel.dataSize(), parcel.dataSize() < 250_000)
         } finally { parcel.recycle() }
     }
     private fun findList(view: View): android.widget.ListView? = when (view) {

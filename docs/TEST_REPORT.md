@@ -2,7 +2,7 @@
 
 Latest test date: 19 November 2026 (Asia/Dhaka).
 
-Current local development APK: version **1.0.17**, version code **19**, with full Calendar category filters and the widget content-refresh correction. Database schema remains 9. Earlier feature checks below are historical verification.
+Current local development APK: version **1.0.18**, version code **19**, with full Calendar category filters and the widget content-refresh correction. Database schema remains 9. Earlier feature checks below are historical verification.
 
 ## Widget content refresh
 

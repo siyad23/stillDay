@@ -9,7 +9,7 @@ import shutil
 import subprocess
 
 
-def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = None, apk_name: str = "Stillday.apk") -> dict:
+def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = None, apk_name: str = "Stillday.apk", expected_version_code: int | None = None) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*\.apk", apk_name, re.IGNORECASE):
         raise ValueError("Use an APK filename without directories.")
     tools = sdk / "build-tools" / "36.0.0"
@@ -28,6 +28,8 @@ def create_assets(apk: Path, output: Path, sdk: Path, release_tag: str | None = 
     version = values["versionName"]
     if release_tag is not None and release_tag != "v" + version:
         raise ValueError("The release tag must match the APK versionName: v" + version)
+    if expected_version_code is not None and int(values["versionCode"]) != expected_version_code:
+        raise ValueError(f"APK versionCode {values['versionCode']} does not match configured build {expected_version_code}.")
     output.mkdir(parents=True, exist_ok=True)
     target = output / apk_name
     if apk.resolve() != target.resolve():
@@ -49,8 +51,9 @@ if __name__ == "__main__":
     parser.add_argument("--output", default=Path("artifacts/release"), type=Path)
     parser.add_argument("--sdk", default=os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT"), type=Path)
     parser.add_argument("--tag")
+    parser.add_argument("--expected-version-code", type=int)
     parser.add_argument("--apk-name", default="Stillday.apk", help="Exact APK asset name on the GitHub release")
     args = parser.parse_args()
     if args.sdk is None:
         parser.error("Set ANDROID_HOME or supply --sdk.")
-    print(json.dumps(create_assets(args.apk, args.output, args.sdk, args.tag, args.apk_name), indent=2))
+    print(json.dumps(create_assets(args.apk, args.output, args.sdk, args.tag, args.apk_name, args.expected_version_code), indent=2))

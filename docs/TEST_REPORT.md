@@ -1,10 +1,20 @@
 # Stillday verification
 
-Latest test date: 19 November 2026 (Asia/Dhaka).
+Latest test date: 21 November 2026 (Asia/Dhaka).
 
-Current local development APK: version **1.0.18**, version code **19**, with full Calendar category filters and the widget content-refresh correction. Database schema remains 9. Earlier feature checks below are historical verification.
+Current local development APK: version **1.0.20**, version code **22**, with release-version safeguards and the existing Calendar/widget fixes. Database schema remains 9. Earlier feature checks below are historical verification.
 
-## Widget content refresh
+## v1.0.20 release preparation
+
+The signed local APK is verified with Android apksigner and aapt2 as **versionName 1.0.20 / versionCode 22**. Its generated update.json has matching name, code, byte size and SHA-256. Debug/release APK builds and debug lint pass. All **216 JVM tests pass (162 domain + 54 app)** with one optional live-GitHub check skipped. Thirteen Python release checks pass, and both GitHub workflows pass actionlint.
+
+The tag check rejects a name mismatch before SDK/signing/build work. The release workflow passes the validated name/code explicitly to Gradle and verifies the actual APK code again when generating metadata. Tests cover malformed versions, wrong tags, stale commits, dirty working trees, existing tags, local-only safe tag creation, and wrong APK build numbers despite a matching name. The real dirty-tree check refused to create v1.0.20, leaving all tags unchanged.
+
+The original v1.0.18/v1.0.19 tags reference commits with the preceding version declarations. A new tag must follow the release commit; re-running those older tagged workflows cannot acquire these changes. The helper in scripts/release-version.py checks that ordering. See [release instructions](UPDATES.md).
+
+The first local build command hit PowerShell parsing of an unquoted version argument; the verified run invokes Gradle through Java with an explicit argument list. The hosted workflow uses quoted Bash arguments. No Android UI/device tests were repeated for this release-configuration change. The APK uses the existing local development key; no commit, tag, push or GitHub release was created by this task.
+
+## Historical widget content refresh
 
 The JVM regression run passes 216 tests (162 domain and 54 app), with one optional live-GitHub check skipped. Debug APK assembly and debug lint pass; lint reports zero errors, 23 warnings and three hints. The targeted Pixel 7 / Android 16 run passes 13 device checks, with three opt-in launcher/demo/cold-process fixtures skipped.
 

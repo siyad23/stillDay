@@ -49,6 +49,14 @@ class ReleaseAssetsTest(unittest.TestCase):
             self.generate(release_tag="v1.0.12")
         self.assertFalse(self.output.exists())
 
+    def test_correct_name_with_wrong_build_number_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "versionCode"):
+            self.generate(release_tag="v1.0.11", expected_version_code=14)
+        self.assertFalse(self.output.exists())
+
+    def test_expected_build_number_is_extracted_from_the_apk(self):
+        self.assertEqual(13, self.generate(release_tag="v1.0.11", expected_version_code=13)["versionCode"])
+
     def test_asset_name_cannot_escape_release_directory(self):
         for name in ["../other.apk", "folder/app.apk", "app.json", "..\\app.apk"]:
             with self.subTest(name=name), self.assertRaises(ValueError):

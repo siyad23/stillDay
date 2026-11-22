@@ -82,14 +82,17 @@ class NavigationUiTest {
     @Test fun calendarIsOpenedFromTodayAndPreservesItsSelectedDateWhenReturning() {
         rule.onNodeWithText("Projects").assertExists()
         rule.onNodeWithContentDescription("Open calendar").performClick()
-        val tomorrow = repository.today().plusDays(1)
-        rule.onNodeWithText("Date").performTextReplacement(DisplayDates.format(tomorrow))
+        val nextLab = repository.state.value.data.occurrences
+            .filter { it.courseId == "demo-lab" && it.originalDate > repository.today().toString() }
+            .minBy { it.start }
+        val labDate = nextLab.start.dateTime().toLocalDate()
+        rule.onNodeWithText("Date").performTextReplacement(DisplayDates.format(labDate))
         Espresso.closeSoftKeyboard()
         rule.onNode(hasText("09:00") and hasText("Circuits Lab")).performScrollTo().performClick()
         back()
-        rule.onNodeWithText("Date").assertTextContains(DisplayDates.format(tomorrow))
+        rule.onNodeWithText("Date").assertTextContains(DisplayDates.format(labDate))
         back()
-        rule.onNodeWithText("Today at a glance.").assertExists()
+        rule.onNodeWithText("Day plan", substring = false).assertExists()
         rule.onNodeWithContentDescription("Open calendar").assertExists()
     }
 

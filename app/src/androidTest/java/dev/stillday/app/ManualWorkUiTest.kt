@@ -81,10 +81,11 @@ class ManualWorkUiTest {
         screenshot("friday-jummah-calendar")
     }
     @Test fun todaySlotOpensManualChooserAndRecordsStudyWithSpacedRepetitionProgress() {
-        rule.waitUntil(15_000) { rule.onAllNodesWithText("Show day plan").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(15_000) { rule.onAllNodesWithText("Day plan").fetchSemanticsNodes().isNotEmpty() }
         val block = DayPlanner.build(repo.today(), repo.state.value.data, repo.state.value.preferences, repo.now()).blocks
             .firstOrNull { it.flexible && it.end > repo.now().plusMinutes(5) }
         org.junit.Assume.assumeTrue("No work slots remain before sleep at this test time", block != null)
+        rule.onNodeWithText("Day plan", substring = false).performClick()
         rule.onNodeWithText("Show day plan").performScrollTo().performClick()
         rule.onNodeWithContentDescription("Choose work for ${blockTime(block!!)}").performScrollTo().performClick()
         rule.onNodeWithText("Choose study / project work").performScrollTo().performClick()
@@ -99,6 +100,8 @@ class ManualWorkUiTest {
         rule.onNodeWithText("Record study").performClick()
         rule.waitUntil(10_000) { repo.state.value.data.reviews.any { it.workSlotId == block.id } }
         assertEquals(12, repo.state.value.data.topics.first { it.id == "demo-t2" }.progressMinutes)
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.onNodeWithText("Hide day plan").assertExists()
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Open calendar").assertExists()
     }

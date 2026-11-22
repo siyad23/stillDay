@@ -3,7 +3,7 @@
 Goal: identify the next activity, its type and its time without reading paragraphs. Keep the existing quiet character across Pixel 7 layouts, larger text and all light/dark themes.
 
 <p>
-  <img src="screenshots/ux-today-paper.png" alt="Today with a compact summary and separate activity cards" width="240" />
+  <img src="screenshots/today-paper.png" alt="Today showing the current class, room and meal" width="240" />
   <img src="screenshots/ux-calendar-types.png" alt="Study, classes, projects, meals and prayer with distinct icons and muted colors" width="240" />
   <img src="screenshots/weekly-wednesday-lunch.png" alt="Wednesday lunch skipped every week" width="240" />
 </p>
@@ -22,7 +22,7 @@ Use one shared visual vocabulary throughout Today, Calendar, University, Project
 
 Category colors are functional identifiers requested by the user. They extend the design-first skill's single-accent example; surfaces stay neutral, saturated fills are avoided, and colors are always paired with icons and visible labels.
 
-Hierarchy: time or status first, activity title second, one short supporting line third. Use a compact summary above the next activities. Today previews upcoming cards immediately, with an option to expand the complete remaining plan. Keep Calendar as the full-day view and avoid duplicate lists of the same classes on Today.
+Hierarchy: time or status first, activity title second, one short supporting line third. Today puts two cards first: current or next class with its room, and current or next meal with its menu. A filled blue class card and warm meal surface mark those two priorities. Day plan holds the timeline and meal overrides, Study holds reviews and exam focus, and Tasks holds routines, lab work and deadlines. Calendar is the full-day view. The design pass used [Unslop by Damir Sokolovsky](https://github.com/heydamir/unslop).
 
 Cards share leading category icons, subtle tinted surfaces, rounded corners and strong titles. Use badges for category, duration and state; progress bars for completion. Keep tap targets at least 48 dp, allow text wrapping, and maintain readable text contrast in every theme. Display dates as 10 Aug, 2026.
 

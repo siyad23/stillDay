@@ -62,19 +62,25 @@ object Forms {
             FormField("weeks", "Repeat every N weeks", (old?.intervalWeeks ?: 1).toString()),
             FormField("anchor", "First eligible week date", old?.anchorDate ?: semester.start),
             FormField("from", "Apply from date", if (old == null) semester.start else vm.repository.today().toString())),
-            "Generates the semester's full schedule. For two theory classes weekly, add two slots. Existing attendance and individual overrides stay intact.", preview = { v ->
+            if (old == null) "Add one recurring slot per weekly class time." else
+                "Updates this slot on and after Apply from date. Recorded attendance and individual changes stay in place. Linked experiments keep their session if its date drops out of the recurrence.", preview = { v ->
                 val previewRule = ScheduleRule(old?.id ?: "preview", course.id, v.number("weekday", 1..7), v.timeValue("time"),
                     v.number("duration", 1..1440), v.number("weeks", 1..52), v.dateValue("anchor"), v["location"].orEmpty().trim())
                 val from = v.dateValue("from").date()
                 val existing = vm.state.value.data.occurrences.filter { it.ruleId == old?.id }
                 val next = Recurrence.generateOccurrences(semester, course, previewRule, existing, from,
                     vm.state.value.data.experiments.map { it.occurrenceId }.toSet())
-                "Preview: ${next.count { it.originalDate >= from.toString() }} occurrences from ${dateLabel(from.toString())}; ${next.size} total retained/generated."
+                val nextById = next.associateBy { it.id }
+                val existingById = existing.associateBy { it.id }
+                val added = next.count { it.id !in existingById }
+                val changed = next.count { it.id in existingById && existingById[it.id] != it }
+                val removed = existing.count { it.id !in nextById }
+                "$added added · $changed updated · $removed removed"
             }) { v ->
             val r = ScheduleRule(old?.id ?: newId(), course.id, v.number("weekday", 1..7), v.timeValue("time"),
                 v.number("duration", 1..1440), v.number("weeks", 1..52), v.dateValue("anchor"), v["location"].orEmpty().trim())
             val from = v.dateValue("from").date()
-            vm.edit { s ->
+            vm.edit(if (old == null) "Recurring slot added" else "Recurring schedule updated") { s ->
                 val currentSemester = s.semesters.first { it.id == course.semesterId }
                 val generated = Recurrence.generateOccurrences(currentSemester, course, r, s.occurrences.filter { it.ruleId == r.id }, from, s.experiments.map { it.occurrenceId }.toSet())
                 s.copy(rules = s.rules.filterNot { it.id == r.id } + r, occurrences = s.occurrences.filterNot { it.ruleId == r.id } + generated)
@@ -85,7 +91,7 @@ object Forms {
     fun occurrence(vm: PlannerViewModel, old: Occurrence) = FormSpec("Reschedule this class", listOf(
         FormField("date", "Date", old.start.take(10)), FormField("time", "Start time", timeLabel(old.start)),
         FormField("duration", "Duration in minutes", java.time.Duration.between(old.start.dateTime(), old.end.dateTime()).toMinutes().toString()),
-        FormField("location", "Location", old.location, optional = true)), "Only this occurrence changes.") { v ->
+        FormField("location", "Location", old.location, optional = true)), "Changes this class only. To change future classes too, use Edit recurring slot on the class page.") { v ->
         val at = v.at().dateTime()
         val duration = v.number("duration", 1..1440)
         vm.edit { s -> s.copy(occurrences = s.occurrences.map { if (it.id == old.id) it.copy(start = at.toString(),

@@ -3,7 +3,7 @@
 A native, offline Android life planner built around a bounded daily study plan. All application data stays on the device; no account or backend is required.
 
 <p>
-  <img src="docs/screenshots/today-paper.png" alt="Today screen in the Paper theme with a bounded study plan" width="240" />
+  <img src="docs/screenshots/today-paper.png" alt="Today in Paper showing the current class, room and meal" width="240" />
   <img src="docs/screenshots/today-charcoal.png" alt="Today screen in the Charcoal dark theme" width="240" />
   <img src="docs/screenshots/manual-semester.png" alt="Creating only Semester 7 with manual start and expected end dates" width="240" />
 </p>
@@ -63,7 +63,7 @@ On a phone, transfer the APK, open it, and allow installation from the file mana
 - Five-minute mosque travel and twenty-minute post-prayer windows, with a separate Friday-only Jummah time replacing Dhuhr.
 - [Manual study/project choices](docs/MANUAL_WORK.md) inside existing Today and Calendar work slots, with individual topics, whole chapters or an active project TODO.
 - Fajr-based wake-up and bedtime, plus an optional automatic wake alarm with maximum alarm volume, snooze/dismiss controls and a separate Clock backup shortcut.
-- A shared, quiet [visual system](docs/UX_SYSTEM.md): violet prayers, sage study, blue classes and amber projects, with icons, time columns, status badges and accessible theme previews. Today previews upcoming activities directly and avoids duplicate event lists.
+- A shared, quiet [visual system](docs/UX_SYSTEM.md): violet prayers, sage study, blue classes and amber projects, with icons, time columns, status badges and accessible theme previews. Today puts the current or next class, its room, and the meal up front. Day plan, Study and Tasks hold the detailed lists.
 - Paper, Warm Sand, Charcoal, Midnight, and system themes; accessible form controls and native date/time pickers.
 - Home-screen Add Quiz widget, daily briefings, and [individually controlled reminders](docs/NOTIFICATIONS.md) for classes, labs, meals, prayer, study, projects/capstone, assessments, assignments, lab submissions, routines and travel. Choose silent, default or a phone ringtone per category; validated JSON export/import retains these preferences.
 - A translucent, theme-matched [home-screen agenda widget](docs/WIDGETS.md), with grouped dates, scrolling/resizing, event links, and quick quiz capture.

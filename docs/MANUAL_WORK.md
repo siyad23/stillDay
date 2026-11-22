@@ -5,7 +5,7 @@ Stillday generates work slots around meals, prayer, classes, travel, routines an
 ## Choose a slot
 
 1. Enable **Fill available time** in Day planning.
-2. On Today, expand **Show day plan** and tap a study or project block. For another date, open Calendar from Today, select the date and tap its work block.
+2. Open **Today → Day plan**, expand **Show day plan** and tap a study or project block. For another date, open Calendar from Today, select the date and tap its work block.
 3. Tap **Choose study / project work**.
 4. Choose **Study** or **Project**, make your selection and tap **Save slot**.
 

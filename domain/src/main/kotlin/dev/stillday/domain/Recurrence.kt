@@ -16,6 +16,9 @@ object Recurrence {
         val end = semester.end.date()
         require(!end.isBefore(start))
         val old = existing.associateBy { it.id }
+        fun preservesSchedule(occurrence: Occurrence): Boolean = occurrence.originalDate.date().isBefore(from) ||
+            occurrence.start.dateTime().toLocalDate().isBefore(from) || occurrence.overridden || occurrence.cancelled ||
+            occurrence.attendance != Attendance.UNMARKED
         val anchorMonday = rule.anchorDate.date().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val result = mutableListOf<Occurrence>()
         var day = start.with(TemporalAdjusters.nextOrSame(DayOfWeek.of(rule.weekday)))
@@ -24,7 +27,7 @@ object Recurrence {
             if (week >= 0 && week % rule.intervalWeeks == 0L) {
                 val id = "${rule.id}:$day"
                 val previous = old[id]
-                if (previous != null && (day.isBefore(from) || previous.overridden || previous.attendance != Attendance.UNMARKED || previous.id in protectedIds)) {
+                if (previous != null && preservesSchedule(previous)) {
                     result += previous
                 } else if (!day.isBefore(from)) {
                     val at = day.atTime(LocalTime.parse(rule.time))
@@ -34,10 +37,11 @@ object Recurrence {
             }
             day = day.plusWeeks(1)
         }
-        // A changed recurrence cannot erase attendance or an explicit exception.
+        // Keep linked experiments if their date drops out of the new recurrence.
+        // When the date remains, their occurrence ID stays valid as its time and room update.
         val ids = result.map { it.id }.toSet()
         result += existing.filter { it.ruleId == rule.id && it.id !in ids &&
-            (it.originalDate.date().isBefore(from) || it.overridden || it.attendance != Attendance.UNMARKED || it.id in protectedIds) }
+            (preservesSchedule(it) || it.id in protectedIds) }
         return result.distinctBy { it.id }.sortedBy { it.start }
     }
 

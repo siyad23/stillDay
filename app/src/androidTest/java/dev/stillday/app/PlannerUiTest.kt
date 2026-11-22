@@ -20,10 +20,11 @@ class PlannerUiTest {
     @Before fun prepare() {
         runBlocking {
             repository.initialize()
+            repository.preferences { Preferences(timezone = "Asia/Dhaka", onboardingComplete = true, demoData = true,
+                reminderSetupDone = true, theme = ThemeChoice.PAPER, autoFillDay = false) }
             repository.change { DemoData.create(repository.today()) }
-            repository.preferences { it.copy(onboardingComplete = true, demoData = true, theme = ThemeChoice.PAPER, notifications = false, autoFillDay = false, wakeAlarmEnabled = false) }
         }
-        rule.waitUntil(15_000) { rule.onAllNodesWithText("Start studying").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(15_000) { rule.onAllNodesWithContentDescription("Open calendar").fetchSemanticsNodes().isNotEmpty() }
     }
     private fun screenshot(name: String) {
         rule.waitForIdle()
@@ -48,6 +49,7 @@ class PlannerUiTest {
 
     @Test fun todayRecordsStudyAndKeepsBudget() {
         screenshot("01-today-paper")
+        rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Start studying").performScrollTo().performClick()
         rule.onNodeWithText("Good", useUnmergedTree = true).performClick()
         rule.onNodeWithText("Record study").performClick()
@@ -120,12 +122,13 @@ class PlannerUiTest {
         screenshot("05-life-meals")
     }
 
-    @Test fun projectSwitchRemovesTasksFromToday() {
+    @Test fun projectSwitchRemovesTasksFromDailyTasks() {
         rule.onNodeWithText("Projects").performClick()
         rule.onNodeWithText("Build a personal website").performClick()
-        rule.onNode(isToggleable() and hasAnySibling(hasText("  Active · tasks appear in Today"))).performClick()
+        rule.onNode(isToggleable() and hasAnySibling(hasText("  Active · included in daily tasks"))).performClick()
         rule.waitUntil(10_000) { repository.state.value.data.projects.none { it.active } }
         rule.onNodeWithText("Today").performClick()
+        rule.onNodeWithText("Tasks", substring = false).performClick()
         rule.onNodeWithText("Sketch the home page").assertDoesNotExist()
     }
 
@@ -135,7 +138,7 @@ class PlannerUiTest {
         screenshot("06-quick-quiz")
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.assessments.any { it.title == "Widget capture quiz" } }
-        rule.onNodeWithText("Today at a glance.").assertExists()
+        rule.onNodeWithText("Day plan", substring = false).assertExists()
     }
 
     @Test fun largeTextAndActivityRecreationKeepTheAppUsable() {
@@ -143,8 +146,9 @@ class PlannerUiTest {
         instrumentation.uiAutomation.executeShellCommand("settings put system font_scale 1.3").close()
         try {
             rule.activityRule.scenario.recreate()
-            rule.waitUntil(10_000) { rule.onAllNodesWithText("Start studying").fetchSemanticsNodes().isNotEmpty() }
+            rule.waitUntil(10_000) { rule.onAllNodesWithContentDescription("Open calendar").fetchSemanticsNodes().isNotEmpty() }
             screenshot("07-today-large-text")
+            rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
             rule.onNodeWithText("Start studying").performScrollTo().performClick()
             rule.onNodeWithText("Record study").assertIsDisplayed()
             screenshot("08-study-large-text")

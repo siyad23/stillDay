@@ -40,7 +40,7 @@ Before exact dates are known, the planner prepares theory subjects across the ac
 
 ## Override today's suggestions
 
-On **Today → Choose topics**, clear or change the selection, choose chapters or individual items, then press **Use my selection**. You may choose a different theory paper or review a learned topic that is not due yet. During focus, lab topics remain excluded.
+On **Today → Study → Choose topics**, clear or change the selection, choose chapters or individual items, then press **Use my selection**. You may choose a different theory paper or review a learned topic that is not due yet. During focus, lab topics remain excluded.
 
 Your choice replaces automatic suggestions for today. The difficult-work cap stays enabled unless you explicitly switch it off in the picker. Available study time always remains a limit, so a large selection may be deferred. Ratings still update spaced repetition normally.
 

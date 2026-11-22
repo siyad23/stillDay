@@ -110,6 +110,8 @@ import dev.stillday.domain.*
                     Text("Only recorded, non-cancelled classes count. Excused classes are excluded.", style = MaterialTheme.typography.bodyMedium)
                 }
                 SectionTitle("Recurring slots", "Add slot") { open(Forms.rule(vm, course)) }
+                Text("Tap a recurring slot to update future classes. Tap a dated class to reschedule it once or edit its recurring slot.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 s.rules.filter { it.courseId == id }.forEach { rule ->
                     ItemRow("${java.time.DayOfWeek.of(rule.weekday).name.pretty()} · ${rule.time}", "${rule.durationMinutes} min · every ${rule.intervalWeeks} week(s) · ${rule.location.ifBlank { "Room not set" }}", onClick = { open(Forms.rule(vm, course, rule)) })
                 }
@@ -250,6 +252,9 @@ import dev.stillday.domain.*
             TextButton(onClick = { open(Forms.occurrence(vm, o)) }) { Text("Reschedule this class") }
             TextButton(onClick = { vm.edit(if (o.cancelled) "Class restored" else "Class cancelled") { it.copy(occurrences = it.occurrences.map { row -> if (row.id == id) row.copy(cancelled = !row.cancelled, overridden = true) else row }) } }) { Text(if (o.cancelled) "Restore" else "Cancel class") }
         }
+        s.rules.find { it.id == o.ruleId }?.let { rule ->
+            OutlinedButton(onClick = { open(Forms.rule(vm, course, rule)) }) { Text("Edit recurring slot") }
+        }
         SectionTitle("Attendance")
         Attendance.entries.forEach { status -> RadioRow(status.name.pretty(), o.attendance == status, { vm.edit("Attendance saved") { it.copy(occurrences = it.occurrences.map { row -> if (row.id == id) row.copy(attendance = status) else row }) } }) }
         if (course.isProjectLab) {
@@ -289,7 +294,7 @@ import dev.stillday.domain.*
         TextButton(onClick = { open(if (project) Forms.project(vm, p) else Forms.assignment(vm, a!!.courseId, a)) }) { Text("Edit details") }
         if (project) Row(verticalAlignment = Alignment.CenterVertically) {
             Switch(p!!.active, { active -> vm.edit("Project updated") { it.copy(projects = it.projects.map { row -> if (row.id == id) row.copy(active = active) else row }) } })
-            Text(if (p.active) "  Active · tasks appear in Today" else "  Paused · tasks hidden from Today")
+            Text(if (p.active) "  Active · included in daily tasks" else "  Paused · excluded from daily tasks")
         } else Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(a!!.completed, { checked -> vm.edit("Submission updated") { it.copy(assignments = it.assignments.map { row -> if (row.id == id) row.copy(completed = checked) else row }) } })
             Text("Submitted")

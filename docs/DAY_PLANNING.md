@@ -1,6 +1,6 @@
 # Day planning, prayer times and wake-up alarms
 
-Open **Life → Day plan**, or **Today → Plan settings**.
+Open **Life → Day plan**, or **Today → Day plan → Plan settings**.
 
 <p>
   <img src="screenshots/day-plan-paper.png" alt="Day planning with synthetic prayer and meal settings in Paper" width="240" />
@@ -18,14 +18,14 @@ Open **Life → Day plan**, or **Today → Plan settings**.
 - Gaps under thirty minutes stay vacant for relaxation. Work blocks are never shorter than thirty minutes.
 - Usable gaps default to half study and half active-project work. Edit the percentage in Day planning; whole short blocks can make the result approximate. Paused and fully completed projects receive no time. With no unfinished active project, the time goes to study.
 - Exam focus uses all work time for study. Assignment and project TODO suggestions remain paused.
-- Each exam period supports Automatic, Start focus and Stop focus. Detailed theory-paper dates prioritize the next paper's syllabus; Today → Choose topics overrides suggestions for that day. See [Exam routines and study choices](EXAMS.md).
-- Today shows remaining time. Calendar shows the full day's plan. The agenda widget includes study, projects, meals, prayers and bedtime. The split applies across the whole day; remaining study/project totals can differ as time passes. Work slots keep their start/end times and category as the clock advances, including a partly elapsed current slot. Commitments and preferences trigger recalculation.
+- Each exam period supports Automatic, Start focus and Stop focus. Detailed theory-paper dates prioritize the next paper's syllabus; Today → Study → Choose topics overrides suggestions for that day. See [Exam routines and study choices](EXAMS.md).
+- Today shows the current or next class and meal. Open Day plan for the remaining timeline. Calendar shows the full day's plan. The agenda widget includes study, projects, meals, prayers and bedtime. The split applies across the whole day; remaining study/project totals can differ as time passes. Work slots keep their start/end times and category as the clock advances, including a partly elapsed current slot. Commitments and preferences trigger recalculation.
 - Your topic queue uses the available study allocation, retaining new/review balance, difficult-work limits and ratings. If automatic planning is switched off, your existing fixed daily study budgets apply.
 - Conflicting fixed activities are reported without moving them. Sleep remains protected from generated work; a late commitment produces a sleep-conflict warning.
 
 ## Choose the work inside a generated slot
 
-Tap a study or project block in Today’s expanded day plan or the full Calendar, then choose **Choose study / project work**. Select individual topics, whole chapters or an active project’s TODO. The slot retains its existing date, start and end; meals, prayer, routines and class buffers remain protected. **Use automatic choice** removes the selection while retaining study history. Future dates can be planned from Calendar. See [manual study and project slots](MANUAL_WORK.md) for details.
+Tap a study or project block in **Today → Day plan → Show day plan** or the full Calendar, then choose **Choose study / project work**. Select individual topics, whole chapters or an active project’s TODO. The slot retains its existing date, start and end; meals, prayer, routines and class buffers remain protected. **Use automatic choice** removes the selection while retaining study history. Future dates can be planned from Calendar. See [manual study and project slots](MANUAL_WORK.md) for details.
 
 ## Meals
 
@@ -75,3 +75,9 @@ References: [Android AlarmClock API](https://developer.android.com/reference/and
 Open Calendar from Today. Under **Filter calendar**, choose **All**, **Exams**, **Classes** or **Other routines**. Exams includes quizzes and both provisional and detailed exams. Classes includes theory, labs, cancelled sessions and sessions suppressed by exam periods. Other routines shows meals, prayer, study/project slots, routines, travel and assignment/project/lab submission deadlines. Meal override controls appear only for All or Other routines.
 
 Filters apply to both day and whole-week views. The selection stays in place while changing dates, opening an event and returning, or recreating the screen. All restores the complete calendar. Filtering changes only the view; saved schedules and automatic planning stay intact.
+
+## Edit future classes
+
+From a dated class, select **Edit recurring slot**. You can also tap the slot under **University → Course → Schedule → Recurring slots**. Set the weekday, time, room, or interval and check the add/update/remove preview. **Apply from date** controls when the new pattern starts.
+
+Use **Reschedule this class** for a single exception. Recorded attendance, cancellations, and earlier or individually moved classes are preserved. An experiment attached to a future lab follows new time and room settings when its date still matches the slot. If its date falls out of the new pattern, its session remains available so its experiment link does not disappear.

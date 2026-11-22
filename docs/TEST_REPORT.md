@@ -1,10 +1,18 @@
 # Stillday verification
 
-Latest test date: 21 November 2026 (Asia/Dhaka).
+Latest test date: 22 November 2026 (Asia/Dhaka).
 
-Current local development APK: version **1.0.20**, version code **22**, with release-version safeguards and the existing Calendar/widget fixes. Database schema remains 9. Earlier feature checks below are historical verification.
+Current local development APK: version **1.0.21**, version code **23**, with a simplified Today screen and recurring class edits. Database schema remains 9. Earlier feature checks below are historical verification.
 
-## v1.0.20 release preparation
+## Today and recurring class edits
+
+All **219 JVM tests** and **13 Python release tests** pass. One opt-in live GitHub JVM check is skipped. Debug and signed release APKs build, debug lint passes with zero errors, and the local APK verifies as 1.0.21 / build 23.
+
+The Pixel 7 emulator passed **33 UI checks**, with three opt-in screenshot fixtures skipped. The new checks verify the current class, room and meal on Today without scrolling, navigation into separate Day plan, Study and Tasks pages, and a recurring edit made from the class page reaching a later Calendar entry while preserving a one-off move. Domain checks cover class start/end selection, exam suppression, meal skips and overrides, and changing time/room for a future lab with a linked experiment.
+
+Existing filters, Back behavior, prayer and meal timing, manual work slots, lab projects, exam focus, study recording and large text pass across the grouped device runs. Earlier attempts exposed a weekday-dependent demo lab selector, a saved study preference leaking between tests and an instrumentation crash in a long combined run. The verified runs use an actual generated future lab date, independent study preferences and smaller groups. Light and dark screenshots use synthetic records and were visually inspected at 1080 x 2400 pixels. This was a local build and emulator check.
+
+## Historical v1.0.20 release preparation
 
 The signed local APK is verified with Android apksigner and aapt2 as **versionName 1.0.20 / versionCode 22**. Its generated update.json has matching name, code, byte size and SHA-256. Debug/release APK builds and debug lint pass. All **216 JVM tests pass (162 domain + 54 app)** with one optional live-GitHub check skipped. Thirteen Python release checks pass, and both GitHub workflows pass actionlint.
 

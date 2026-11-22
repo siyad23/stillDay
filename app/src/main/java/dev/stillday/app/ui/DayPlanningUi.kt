@@ -30,7 +30,7 @@ import java.time.ZoneId
 
 fun blockTime(block: DayBlock): String = "${timeLabel(block.start.toString())}–${if (block.start.toLocalDate() != block.end.toLocalDate()) "${dateLabel(block.end.toLocalDate().toString())} " else ""}${timeLabel(block.end.toString())}"
 
-@Composable fun DayTimeline(schedule: DaySchedule, navigate: (String) -> Unit, onStudy: (() -> Unit)? = null) {
+@Composable fun DayTimeline(schedule: DaySchedule, navigate: (String) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     SectionTitle("Your time", "Plan settings") { navigate("Planning") }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

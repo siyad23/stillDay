@@ -47,6 +47,7 @@ class DayPlanningUiTest {
             repository.preferences { it.copy(prayerTimes = mapOf("FAJR" to "05:15", "DHUHR" to "13:15", "ASR" to "16:15",
                 "MAGHRIB" to "17:30", "ISHA" to "19:30"), studyPercent = 50, sleepMinutes = 360) }
         }
+        rule.onNodeWithText("Day plan", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Plan settings").performScrollTo().performClick()
         rule.onNodeWithText("Day planning").assertIsDisplayed()
         screenshot("day-plan-paper")
@@ -96,6 +97,7 @@ class DayPlanningUiTest {
         assertEquals(45, moved.durationMinutes); assertEquals("21:00", moved.time)
     }
     @Test fun manualPrayersMealsAndSplitPersistThroughBackupAndDatabaseReopen() {
+        rule.onNodeWithText("Day plan", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Plan settings").performScrollTo().performClick()
         rule.onNodeWithText("Set times").performScrollTo().performClick()
         listOf("Fajr (Fazar)" to "05:15", "Dhuhr" to "13:15", "Asr" to "16:15", "Maghrib" to "17:30", "Isha" to "19:30").forEach { (label, time) -> replace(label, time) }

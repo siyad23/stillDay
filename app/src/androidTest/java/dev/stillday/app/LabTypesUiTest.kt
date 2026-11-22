@@ -59,6 +59,7 @@ class LabTypesUiTest {
         rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.todos.any { it.title == "Breadboard circuit" } }
         rule.onNodeWithText("Today").performClick()
+        rule.onNodeWithText("Tasks", substring = false).performClick()
         rule.onNodeWithContentDescription("Complete Breadboard circuit").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("Projects").performClick()
         rule.onAllNodesWithText("Lab project").assertCountEquals(2)

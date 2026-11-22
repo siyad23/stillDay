@@ -87,7 +87,10 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                     Box(Modifier.padding(padding)) {
                         val open: (FormSpec) -> Unit = { form = it }
                         pageStates.SaveableStateProvider("${navigation.selectedTab}:$route") { when {
-                            route == "Today" -> TodayScreen(vm, state, open, navigate, { study = it })
+                            route == "Today" -> TodayScreen(vm, state, open, navigate)
+                            route == "Day plan" -> TodayPlanScreen(vm, state, open, navigate)
+                            route == "Study" -> TodayStudyScreen(vm, state, open, navigate) { study = it }
+                            route == "Tasks" -> TodayTasksScreen(vm, state, open, navigate)
                             route == "Calendar" -> CalendarScreen(vm, state, open, navigate)
                             route == "University" -> UniversityScreen(vm, state, open, navigate)
                             route == "Life" -> LifeScreen(vm, state, open, navigate)

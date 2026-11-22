@@ -63,12 +63,12 @@ data class ActivityPalette(val accent: Color, val background: Color, val badge: 
 internal fun activityPalette(category: ActivityCategory, colors: ColorScheme): ActivityPalette {
     val dark = colors.background.luminance() < 0.5f
     val accent = when (category) {
-        ActivityCategory.STUDY -> if (dark) Color(0xFFA7CFB5) else Color(0xFF365F4A)
-        ActivityCategory.PRAYER -> if (dark) Color(0xFFCEB9E4) else Color(0xFF67527F)
-        ActivityCategory.CLASS -> if (dark) Color(0xFFA9C8E7) else Color(0xFF385E80)
-        ActivityCategory.PROJECT -> if (dark) Color(0xFFDFC18F) else Color(0xFF7A5B2D)
-        ActivityCategory.MEAL -> if (dark) Color(0xFFE5B8A4) else Color(0xFF805445)
-        ActivityCategory.DEADLINE -> if (dark) Color(0xFFE3ABA5) else Color(0xFF8C4B46)
+        ActivityCategory.STUDY -> if (dark) Color(0xFF91D6B1) else Color(0xFF236149)
+        ActivityCategory.PRAYER -> if (dark) Color(0xFFD8BBFA) else Color(0xFF68468D)
+        ActivityCategory.CLASS -> if (dark) Color(0xFF9FC7F7) else Color(0xFF28598D)
+        ActivityCategory.PROJECT -> if (dark) Color(0xFFF1C382) else Color(0xFF80551A)
+        ActivityCategory.MEAL -> if (dark) Color(0xFFF4B59F) else Color(0xFF904832)
+        ActivityCategory.DEADLINE -> if (dark) Color(0xFFF3ACA6) else Color(0xFF963E39)
         else -> if (dark) colors.onSurfaceVariant else Color(0xFF4F5C54)
     }
     val background = accent.copy(alpha = if (dark) 0.09f else 0.055f).compositeOver(colors.background)

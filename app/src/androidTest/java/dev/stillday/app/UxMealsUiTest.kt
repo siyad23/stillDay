@@ -63,6 +63,7 @@ class UxMealsUiTest {
     }
     @Test fun categoryCardsAreVisibleWithoutExpandingAndOpenTheirActualActivity() {
         waitReady()
+        rule.onNodeWithText("Day plan", substring = false).performClick()
         rule.onNodeWithText("Your time").assertIsDisplayed()
         val next = DayPlanner.build(repository.today(), repository.state.value.data, repository.state.value.preferences, repository.now())
             .blocks.first { it.kind != DayBlockKind.PREPARATION }
@@ -86,6 +87,7 @@ class UxMealsUiTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("ux_demo") == "true")
         waitReady()
         screenshot("ux-today-paper")
+        rule.onNodeWithText("Day plan", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Plan settings").performScrollTo().performClick()
         rule.onNodeWithText("Set times").performScrollTo().performClick()
         screenshot("ux-prayer-editor")

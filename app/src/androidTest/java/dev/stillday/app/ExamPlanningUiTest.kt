@@ -127,6 +127,7 @@ class ExamPlanningUiTest {
     }
     @Test fun focusCanStartStopAndManualReviewOverridesTheNextPaperForTodayAndRestoresAutomatic() {
         ready(); seedPapers()
+        rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Start exam focus").performScrollTo().performClick()
         save()
         rule.waitUntil(10_000) { repository.state.value.data.periods.single().focusOverride == FocusOverride.ON }
@@ -171,6 +172,7 @@ class ExamPlanningUiTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("exam_demo") == "true")
         ready(); seedPapers()
         runBlocking { repository.change { it.copy(periods = it.periods.map { p -> p.copy(focusOverride = FocusOverride.ON) }) } }
+        rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
         screenshot("exam-focus-today")
         rule.onNodeWithText("Exam routine").performScrollTo().performClick()
         screenshot("exam-routine")

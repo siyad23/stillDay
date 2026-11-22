@@ -94,6 +94,7 @@ class ProblemEntryUiTest {
         val problem=repo.state.value.data.topics.single { it.title=="9.1" }
         runBlocking { repo.preferences { it.copy(manualStudyDate=repo.today().toString(),manualStudyTopicIds=listOf(problem.id)) } }
         rule.onNodeWithText("Today",substring=false).performClick()
+        rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Start studying").performScrollTo().performClick()
         rule.onNodeWithText("Minutes spent").assertExists()
         record("35","5","4")

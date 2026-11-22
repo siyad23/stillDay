@@ -27,7 +27,7 @@ The course's **Work** tab shows a separate row for every prework and report, inc
 
 Dates use `10 Aug, 2026`; times use the configured university timezone. A date with no time defaults to 23:59. For prework on the experiment date, enter an actual time no later than the starting time.
 
-Written work still needs submitting. Submitted, Received and Not required stop warnings and reminders independently. Pending deadlines appear in Today, Calendar and the agenda widget; overdue submissions remain visible. Links open the experiment detail page.
+Written work still needs submitting. Submitted, Received and Not required stop warnings and reminders independently. Pending deadlines appear in Today → Tasks, Calendar and the agenda widget; overdue submissions remain visible. Links open the experiment detail page.
 
 Cancellation and exam suppression do not silently erase explicitly entered deadlines. Without an explicit deadline, a cancelled or suppressed occurrence has no automatic prework cutoff or class-based task suggestion. Review retained explicit dates separately. A reschedule updates the displayed session; existing historical deadlines remain stored, including older dates that would not be accepted for a newly edited schedule.
 

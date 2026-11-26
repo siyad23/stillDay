@@ -49,3 +49,9 @@ Your choice replaces automatic suggestions for today. The difficult-work cap sta
 Use **Use automatic plan** to restore suggestions immediately. Otherwise, automatic suggestions return the next day. Already recorded items remain complete for today; use Extra practice in their chapter for another session.
 
 The screenshots use synthetic records on the Pixel 7 emulator.
+
+## Record marks
+
+Calendar shows the course code (when set) and course name on assessment cards. Open a past quiz or midsemester paper from Calendar or the course's **Assessments** tab, then use **Record marks**. The completed paper also has a marks link in the exam routine.
+
+Enter your obtained marks, including a decimal or zero. Add the maximum when known. **Edit marks** updates the score, and leaving both fields blank clears it. Dated assessments accept marks once their duration has elapsed. A midsemester paper with a provisional routine accepts marks after its exam period ends. Marks are saved with the assessment and included in backups.

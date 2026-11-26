@@ -54,7 +54,7 @@ import dev.stillday.domain.*
 }
 
 @Composable fun ExamRoutineScreen(vm: PlannerViewModel, state: AppState, id: String, open: (FormSpec) -> Unit,
-    onAssessment: (String, Assessment?) -> Unit) {
+    navigate: (String) -> Unit, onAssessment: (String, Assessment?) -> Unit) {
     val s = state.data
     val period = s.periods.find { it.id == id } ?: return
     val courses = ExamPlanning.theoryCourses(period, s)
@@ -82,6 +82,11 @@ import dev.stillday.domain.*
                 ActivityCard(a.title, (a.location.ifBlank { "Room not set" }) + " · " + a.durationMinutes + " min · " + coverage + " syllabus items",
                     ActivityCategory.DEADLINE, time = a.at?.let(::timeLabel), badge = if (a.id == next?.id) "Next exam" else "Theory exam",
                     status = a.at?.let(::dateLabel) ?: "Date pending", onClick = { onAssessment(course.id, a) })
+                if (ExamPlanning.canRecordMarks(a, s, vm.repository.now())) {
+                    TextButton(onClick = { navigate("assessment:${a.id}") }) {
+                        Text(a.marksLabel()?.let { "Marks · $it" } ?: "Record marks")
+                    }
+                }
             }
         }
         if (courses.isEmpty()) EmptyState("No theory courses", "Add a theory course to this semester before entering its midsemester or final paper.")

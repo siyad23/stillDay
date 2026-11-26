@@ -13,7 +13,7 @@ Android confirmation is deliberately required. This is an in-app download/instal
 
 Android or Play Protect may show additional checks or an unknown-developer warning for a sideloaded APK. Stillday does not disable or skip those system checks.
 
-The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The current build uses **versionCode 23 / versionName 1.0.21**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 23.
+The public release available when this feature was implemented lacked `update.json`. Stillday explains that the release is not configured until a compatible release is published. It does not mistake an old release tag for a newer Android build. The current build uses **versionCode 24 / versionName 1.0.22**, so it can update the previous builds in place when signed with the same key. Subsequent updates must use a version code greater than 24.
 
 ## Choose and preserve the signing identity
 
@@ -44,18 +44,18 @@ Paste into the GitHub secret, then clear the clipboard. The workflow restores th
 
 ## Publish each update
 
-1. Edit only the two version defaults in `app/build.gradle.kts`: **versionCode 23**, **versionName 1.0.21** for this release. Keep the `providers.gradleProperty(...)` expressions; change the values inside `getOrElse(...)`. A later release needs a higher code, for example 24 / 1.0.22. Documentation does not control the APK version.
+1. Edit only the two version defaults in `app/build.gradle.kts`: **versionCode 24**, **versionName 1.0.22** for this release. Keep the `providers.gradleProperty(...)` expressions; change the values inside `getOrElse(...)`. A later release needs a higher code, for example 25 / 1.0.23. Documentation does not control the APK version.
 2. **Commit and push all release changes before creating a tag.** A tag saves a particular commit; it never picks up later changes automatically. From the repository root:
 
    ```powershell
-   python scripts/release-version.py --tag v1.0.21
+   python scripts/release-version.py --tag v1.0.22
    git status --short
    git add -A
    git diff --cached --stat
-   git commit -m "Release v1.0.21 build 23"
+   git commit -m "Release v1.0.22 build 24"
    git push origin main
    python scripts/release-version.py --create-tag
-   git push origin v1.0.21
+   git push origin v1.0.22
    ```
 
    Review the files shown before staging and commit only intended release work. The helper refuses uncommitted changes, a different committed version, or an existing local tag. It creates only a local tag and never pushes or overwrites one. If other files are still modified, commit the intended changes first. In GitHub's tag picker, use the commit containing this version change. Re-running an old workflow uses the old tagged source.
@@ -73,7 +73,7 @@ The regular **Android build** workflow still runs on pushes and pull requests wi
 Build a signed APK with the same key and run this with JDK 17 and Android SDK 36 configured:
 
 ```powershell
-python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.21 --expected-version-code 23
+python scripts/create-update-manifest.py --apk path/to/signed.apk --tag v1.0.22 --expected-version-code 24
 ```
 
 Upload all three generated files from `artifacts/release/` to a published, latest GitHub release. The script extracts the real version code/name/minimum SDK from the signed APK and calculates its checksum; never hand-edit `update.json` to describe a different APK.

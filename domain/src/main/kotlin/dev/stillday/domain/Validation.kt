@@ -55,7 +55,13 @@ object Validation {
         s.chapters.forEach { has(s.courses.any { p -> p.id == it.courseId }) }
         s.topics.forEach { t -> has(s.chapters.any { it.id == t.chapterId }); require(t.title.isNotBlank() && t.difficulty in 1..5 && t.newMinutes in 1..960 && t.reviewMinutes in 1..960 && t.progressMinutes >= 0 && t.ease >= 1.3 && t.ease.isFinite()); t.nextReview?.date(); t.lastStudied?.date() }
         s.periods.forEach { has(s.semesters.any { p -> p.id == it.semesterId }); require(!it.end.date().isBefore(it.start.date())) }
-        s.assessments.forEach { a -> has(s.courses.any { it.id == a.courseId }); if (a.periodId != null) has(s.periods.any { it.id == a.periodId }); a.at?.dateTime(); require(a.durationMinutes in 1..1440) }
+        s.assessments.forEach { a ->
+            has(s.courses.any { it.id == a.courseId })
+            if (a.periodId != null) has(s.periods.any { it.id == a.periodId })
+            a.at?.dateTime()
+            require(a.durationMinutes in 1..1440)
+            ExamPlanning.validateMarks(a.obtainedMarks, a.maximumMarks)
+        }
         s.coverage.forEach { c -> has(s.assessments.any { it.id == c.assessmentId } && s.topics.any { it.id == c.topicId }); val a = s.assessments.first { it.id == c.assessmentId }; val t = s.topics.first { it.id == c.topicId }; has(s.chapters.any { it.id == t.chapterId && it.courseId == a.courseId }) }
         s.assignments.forEach { a -> has(s.courses.any { it.id == a.courseId }); a.dueAt.dateTime() }
         s.projects.forEach { project ->

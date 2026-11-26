@@ -210,9 +210,11 @@ import dev.stillday.domain.*
     Page {
         CategoryBadge(ActivityCategory.DEADLINE, a.kind.name.pretty())
         Text(a.title, style = MaterialTheme.typography.headlineLarge)
+        s.courses.find { it.id == a.courseId }?.let { Text(it.assessmentLabel(), style = MaterialTheme.typography.titleMedium) }
         Text(a.at?.let { "${dateLabel(it)} · ${timeLabel(it)}" } ?: "Routine pending · provisional ${Recurrence.assessmentDate(a, s)?.let { dateLabel(it.toString()) }.orEmpty()}", color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (a.location.isNotEmpty()) Text(a.location)
         TextButton(onClick = { edit(a) }) { Text("Edit details & syllabus") }
+        AssessmentMarksSection(vm, a, s)
         SectionTitle("Syllabus checklist")
         Text("These checkboxes track assessment preparation. Understanding and review timing come from recorded study sessions.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val coverage = s.coverage.filter { it.assessmentId == id }

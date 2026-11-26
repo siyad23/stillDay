@@ -55,7 +55,7 @@ class ExperimentMigrationTest {
             val old = Experiment("e", "o", "Old experiment", WorkStatus.SUBMITTED, WorkStatus.WRITTEN, "2026-11-12T08:00", "2026-11-14T17:00")
             insert("experiments", JSONObject(plannerJson.encodeToString(old)).apply { remove("courseId") })
             helper.close()
-            val database = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_8_9).build()
+            val database = Room.databaseBuilder(context, PlannerDatabase::class.java, name).addMigrations(PlannerDatabase.MIGRATION_8_9, PlannerDatabase.MIGRATION_9_10).build()
             try {
                 val original = database.planner().load()
                 assertEquals(old.copy(courseId = "lab"), original.experiments.single())

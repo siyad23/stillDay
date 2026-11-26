@@ -27,6 +27,7 @@ import java.time.DayOfWeek
     val date = runCatching { selected.date() }.getOrElse { vm.repository.today() }
     val monday = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val s = state.data
+    val courses = remember(s.courses) { s.courses.associateBy { it.id } }
     Page {
         Text("Space for your day.", style = MaterialTheme.typography.headlineLarge)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -56,12 +57,15 @@ import java.time.DayOfWeek
             val events = mutableListOf<CalendarItem>()
             s.occurrences.filter { it.start.take(10) == day.toString() }.forEach { o ->
                 val suppressed = Recurrence.suppressed(o, s)
-                events += CalendarItem(timeLabel(o.start), s.courses.find { it.id == o.courseId }?.name ?: "Class",
+                events += CalendarItem(timeLabel(o.start), courses[o.courseId]?.name ?: "Class",
                     when { o.cancelled -> "Cancelled"; suppressed -> "Exam period · no class"; else -> "${o.location}${if (o.overridden) " · rescheduled" else ""}" }, "class:${o.id}",
                     if (o.cancelled || suppressed) ActivityCategory.REST else ActivityCategory.CLASS, timeLabel(o.end), CalendarFilter.CLASSES)
             }
             s.assessments.filter { Recurrence.assessmentDate(it, s) == day }.forEach { a ->
-                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, if (a.at == null) "Provisional date · routine pending" else a.location, "assessment:${a.id}", ActivityCategory.DEADLINE, filter = CalendarFilter.EXAMS)
+                val detail = listOfNotNull(courses[a.courseId]?.assessmentLabel(),
+                    if (a.at == null) "Provisional date · routine pending" else a.location.takeIf { it.isNotBlank() }).joinToString("\n")
+                events += CalendarItem(a.at?.let(::timeLabel) ?: "—", a.title, detail,
+                    "assessment:${a.id}", ActivityCategory.DEADLINE, filter = CalendarFilter.EXAMS)
             }
             s.travel.filter { it.departure.take(10) == day.toString() }.forEach { t -> events += CalendarItem(timeLabel(t.departure),
                 "Travel to ${if (t.destination == Place.OTHER) t.destinationName else t.destination.name.pretty()}", "Arrive ${dateLabel(t.arrival)} ${timeLabel(t.arrival)}", category = ActivityCategory.TRAVEL) }

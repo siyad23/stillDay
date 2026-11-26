@@ -102,7 +102,7 @@ abstract class PlannerDao {
 @Database(entities = [Semester::class, Course::class, ScheduleRule::class, Occurrence::class, Chapter::class, Topic::class,
     ExamPeriod::class, Assessment::class, AssessmentTopic::class, Assignment::class, Project::class, Milestone::class,
     Todo::class, Experiment::class, MealTemplate::class, MealOverride::class, TravelLeg::class, Routine::class,
-    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class, WorkSlotAssignment::class], version = 9, exportSchema = true)
+    RoutineOccurrence::class, ReviewEvent::class, StudyPlanEntry::class, WorkSlotAssignment::class], version = 10, exportSchema = true)
 @TypeConverters(PlannerConverters::class)
 abstract class PlannerDatabase : RoomDatabase() {
     abstract fun planner(): PlannerDao
@@ -161,7 +161,13 @@ abstract class PlannerDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_experiments_courseId ON experiments(courseId)")
             }
         }
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE assessments ADD COLUMN obtainedMarks REAL DEFAULT NULL")
+                db.execSQL("ALTER TABLE assessments ADD COLUMN maximumMarks REAL DEFAULT NULL")
+            }
+        }
         fun create(context: Context) = Room.databaseBuilder(context, PlannerDatabase::class.java, "stillday.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build()
     }
 }

@@ -1,10 +1,16 @@
 # Stillday verification
 
-Latest test date: 22 November 2026 (Asia/Dhaka).
+Latest test date: 26 November 2026 (Asia/Dhaka).
 
-Current local development APK: version **1.0.21**, version code **23**, with a simplified Today screen and recurring class edits. Database schema remains 9. Earlier feature checks below are historical verification.
+Current local development APK: version **1.0.22**, version code **24**, with course labels in Calendar and optional marks for past quizzes and midsemester exams. Database schema is 10. Earlier feature checks below are historical verification.
 
-## Today and recurring class edits
+## Assessment course labels and marks
+
+**223 JVM tests**, **13 Python release tests**, and **15 Pixel 7 emulator checks** passed. One optional live GitHub check and one optional device screenshot fixture were skipped. Debug and release builds and debug lint passed. The signed local APK verifies as 1.0.22 / build 24.
+
+The device checks cover course code and name on Calendar assessment cards, decimal quiz marks with an optional maximum, validation, marks retained through a detail edit and backup restore, zero and clearing marks on a past provisional midsemester paper, and eligibility for future quizzes. The Room migration preserves existing assessments with blank marks and persists new marks after upgrade. Calendar filtering, eight migration fixtures and the exam routine regressions also pass. An earlier exam test attempted to close a keyboard from a dropdown-only dialog. The corrected test saves that dialog directly.
+
+## Historical Today and recurring class edits
 
 All **219 JVM tests** and **13 Python release tests** pass. One opt-in live GitHub JVM check is skipped. Debug and signed release APKs build, debug lint passes with zero errors, and the local APK verifies as 1.0.21 / build 23.
 

@@ -7,6 +7,19 @@ data class ExamTarget(val periods: List<ExamPeriod>, val exams: List<Assessment>
     val topicIds: Set<String>, val missingSyllabus: Boolean)
 
 object ExamPlanning {
+    fun canRecordMarks(assessment: Assessment, data: Snapshot, now: LocalDateTime): Boolean {
+        if (assessment.kind != AssessmentKind.QUIZ && assessment.kind != AssessmentKind.MIDSEMESTER) return false
+        assessment.at?.let { return it.dateTime().plusMinutes(assessment.durationMinutes.toLong()) <= now }
+        val period = data.periods.find { it.id == assessment.periodId } ?: return false
+        return period.end.date() < now.toLocalDate()
+    }
+
+    fun validateMarks(obtained: Double?, maximum: Double?) {
+        require(obtained == null || (obtained.isFinite() && obtained >= 0.0)) { "Enter obtained marks of zero or more." }
+        require(maximum == null || (maximum.isFinite() && maximum > 0.0)) { "Enter a maximum greater than zero." }
+        require(maximum == null || (obtained != null && obtained <= maximum)) { "Obtained marks must be entered and within the maximum." }
+    }
+
     fun kind(period: ExamPeriod): AssessmentKind =
         if (period.name.contains("final", ignoreCase = true)) AssessmentKind.FINAL else AssessmentKind.MIDSEMESTER
 

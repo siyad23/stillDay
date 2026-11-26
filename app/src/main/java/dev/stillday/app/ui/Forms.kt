@@ -366,10 +366,14 @@ object Forms {
             }
             val selectedIds = selected.toList()
             vm.action("Assessment saved") {
-                vm.repository.change { current -> current.copy(assessments = current.assessments.filterNot { it.id == assessment.id } + assessment,
+                vm.repository.change { current ->
+                    val saved = current.assessments.find { it.id == assessment.id }
+                    val updated = assessment.copy(obtainedMarks = saved?.obtainedMarks, maximumMarks = saved?.maximumMarks)
+                    current.copy(assessments = current.assessments.filterNot { it.id == assessment.id } + updated,
                     coverage = current.coverage.filterNot { it.assessmentId == assessment.id } + selectedIds.map { id ->
                         current.coverage.find { it.assessmentId == assessment.id && it.topicId == id } ?: AssessmentTopic(assessment.id, id)
-                    }) }
+                    })
+                }
                 dev.stillday.app.Reminders.refresh(context, vm.repository)
                 onClose()
             }

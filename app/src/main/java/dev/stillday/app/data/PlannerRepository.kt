@@ -66,7 +66,9 @@ class PlannerRepository(private val context: Context, private val database: Plan
             val next = transform(mutable.value.data)
             if (next == mutable.value.data) return@withContext
             val previous = mutable.value.data.assessments.associateBy { it.id }
-            next.assessments.filter { previous[it.id] != it }.forEach { ExamPlanning.validateAssessment(it, next) }
+            next.assessments.filter { assessment ->
+                previous[assessment.id]?.copy(obtainedMarks = assessment.obtainedMarks, maximumMarks = assessment.maximumMarks) != assessment
+            }.forEach { ExamPlanning.validateAssessment(it, next) }
             Validation.snapshot(next)
             database.planner().replace(next)
             mutable.value = mutable.value.copy(data = next)

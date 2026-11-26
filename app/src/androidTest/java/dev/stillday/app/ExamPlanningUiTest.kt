@@ -129,7 +129,7 @@ class ExamPlanningUiTest {
         ready(); seedPapers()
         rule.onNodeWithText("Study", substring = false).performScrollTo().performClick()
         rule.onNodeWithText("Start exam focus").performScrollTo().performClick()
-        save()
+        rule.onNodeWithText("Save").performClick()
         rule.waitUntil(10_000) { repository.state.value.data.periods.single().focusOverride == FocusOverride.ON }
         val today = repository.today()
         var plan = DayPlanner.studyPlan(today, repository.state.value.data, repository.state.value.preferences, repository.now())

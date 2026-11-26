@@ -106,7 +106,7 @@ private data class AssessmentRequest(val courseId: String? = null, val assessmen
                             })
                             route.startsWith("work-slot:") -> WorkSlotScreen(vm, state, route.substringAfter(':'), navigate)
                             route.startsWith("semester:") -> SemesterScreen(vm, state, route.substringAfter(':'), open, navigate)
-                            route.startsWith("exam-period:") -> ExamRoutineScreen(vm, state, route.substringAfter(':'), open,
+                            route.startsWith("exam-period:") -> ExamRoutineScreen(vm, state, route.substringAfter(':'), open, navigate,
                                 onAssessment = { id, old -> assessment = AssessmentRequest(id, old, route.substringAfter(':')) })
                             route.startsWith("course:") -> CourseScreen(vm, state, route.substringAfter(':'), open, navigate,
                                 onAssessment = { id, old -> assessment = AssessmentRequest(id, old) })

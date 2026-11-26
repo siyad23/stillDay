@@ -110,7 +110,9 @@ data class ExamPeriod(@PrimaryKey val id: String = newId(), val semesterId: Stri
 data class Assessment(@PrimaryKey val id: String = newId(), val courseId: String, val title: String,
     val kind: AssessmentKind = AssessmentKind.QUIZ, val at: String? = null, val location: String = "",
     val periodId: String? = null,
-    @ColumnInfo(defaultValue = "60") val durationMinutes: Int = 60)
+    @ColumnInfo(defaultValue = "60") val durationMinutes: Int = 60,
+    @ColumnInfo(defaultValue = "NULL") val obtainedMarks: Double? = null,
+    @ColumnInfo(defaultValue = "NULL") val maximumMarks: Double? = null)
 
 @Entity(tableName = "assessment_topics", primaryKeys = ["assessmentId", "topicId"], indices = [Index("topicId")]) @Serializable
 data class AssessmentTopic(val assessmentId: String, val topicId: String, val checked: Boolean = false)
